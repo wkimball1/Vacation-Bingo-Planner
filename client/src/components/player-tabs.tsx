@@ -1,12 +1,14 @@
 import { cn } from "@/lib/utils";
 import { Heart, User } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface PlayerTabsProps {
   activePlayer: string;
   onSelectPlayer: (player: string) => void;
+  loggedInPlayer: string;
 }
 
-export function PlayerTabs({ activePlayer, onSelectPlayer }: PlayerTabsProps) {
+export function PlayerTabs({ activePlayer, onSelectPlayer, loggedInPlayer }: PlayerTabsProps) {
   return (
     <div className="flex gap-2" data-testid="player-tabs">
       <button
@@ -21,6 +23,9 @@ export function PlayerTabs({ activePlayer, onSelectPlayer }: PlayerTabsProps) {
       >
         <User className="w-4 h-4" />
         His Card
+        {loggedInPlayer === "him" && (
+          <Badge variant="outline" className="text-[10px] ml-1">You</Badge>
+        )}
       </button>
       <button
         data-testid="tab-player-her"
@@ -34,6 +39,9 @@ export function PlayerTabs({ activePlayer, onSelectPlayer }: PlayerTabsProps) {
       >
         <Heart className="w-4 h-4" />
         Her Card
+        {loggedInPlayer === "her" && (
+          <Badge variant="outline" className="text-[10px] ml-1">You</Badge>
+        )}
       </button>
     </div>
   );

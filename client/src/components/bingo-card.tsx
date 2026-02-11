@@ -11,6 +11,7 @@ interface BingoCardProps {
   secretSquares: { text: string; description: string; checked: boolean; id: string }[];
   onToggleSquare: (index: number) => void;
   onToggleSecret: (id: string) => void;
+  readOnly?: boolean;
 }
 
 export function BingoCard({
@@ -19,6 +20,7 @@ export function BingoCard({
   secretSquares,
   onToggleSquare,
   onToggleSecret,
+  readOnly,
 }: BingoCardProps) {
   const checkedCount = checkedSquares.filter(Boolean).length;
   const totalSquares = night.squares.length;
@@ -67,8 +69,9 @@ export function BingoCard({
             text={square.text}
             description={square.description}
             checked={checkedSquares[index] || false}
-            onToggle={() => onToggleSquare(index)}
+            onToggle={readOnly ? () => {} : () => onToggleSquare(index)}
             gridSize={night.gridSize}
+            readOnly={readOnly}
           />
         ))}
       </div>

@@ -14,6 +14,7 @@ interface BingoSquareProps {
   description: string;
   checked: boolean;
   isSecret?: boolean;
+  readOnly?: boolean;
   onToggle: () => void;
   gridSize: number;
 }
@@ -23,6 +24,7 @@ export function BingoSquareCell({
   description,
   checked,
   isSecret,
+  readOnly,
   onToggle,
   gridSize,
 }: BingoSquareProps) {
@@ -30,6 +32,7 @@ export function BingoSquareCell({
   const [justToggled, setJustToggled] = useState(false);
 
   const handleTap = () => {
+    if (readOnly) return;
     onToggle();
     setJustToggled(true);
     setTimeout(() => setJustToggled(false), 400);

@@ -20,13 +20,23 @@ export const secretSquares = pgTable("secret_squares", {
   checked: boolean("checked").notNull().default(false),
 });
 
+export const playerPins = pgTable("player_pins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  player: text("player").notNull().unique(),
+  pin: text("pin").notNull(),
+  shared: boolean("shared").notNull().default(false),
+});
+
 export const insertBingoProgressSchema = createInsertSchema(bingoProgress).omit({ id: true });
 export const insertSecretSquareSchema = createInsertSchema(secretSquares).omit({ id: true });
+export const insertPlayerPinSchema = createInsertSchema(playerPins).omit({ id: true });
 
 export type BingoProgress = typeof bingoProgress.$inferSelect;
 export type InsertBingoProgress = z.infer<typeof insertBingoProgressSchema>;
 export type SecretSquare = typeof secretSquares.$inferSelect;
 export type InsertSecretSquare = z.infer<typeof insertSecretSquareSchema>;
+export type PlayerPin = typeof playerPins.$inferSelect;
+export type InsertPlayerPin = z.infer<typeof insertPlayerPinSchema>;
 
 export interface BingoSquare {
   text: string;
