@@ -1,0 +1,159 @@
+Yep — this is exactly how to brief an AI to vibe‑code it cleanly.
+Below is a structured spec you can paste straight into another AI as instructions.
+
+⸻
+
+🧠 PROJECT OVERVIEW (COPY THIS)
+
+Build a mobile‑first couples bingo web app for a 3‑night trip.
+Each night has its own bingo card, with tappable squares users can check off.
+Tone: playful, flirty, R‑rated but public‑safe.
+Audience: two adults in a relationship.
+
+No secret squares. No scoring automation required (manual honor system).
+
+⸻
+
+🗂️ DATA STRUCTURE (WHAT THE AI SHOULD MODEL)
+
+Each night has:
+	•	title
+	•	theme
+	•	gridSize
+	•	squares[] (each with text + description)
+	•	betDescription
+
+⸻
+
+💕 THURSDAY NIGHT BINGO
+
+Theme: Cute in public, tension building
+Grid: 3×3
+
+Squares (with intent descriptions)
+	1.	Slow dance a little too close
+Dancing with minimal personal space; innocent but intimate.
+	2.	Compliment whispered in ear
+Private praise said quietly so only your partner hears.
+	3.	Hand on waist longer than needed
+A touch that lingers just enough to feel intentional.
+	4.	“Later” said quietly
+A subtle promise of what’s coming after.
+	5.	One of us blushes
+Visible reaction to flirting or attention.
+	6.	Eye contact + smile during a song
+Shared moment without words.
+	7.	Overdressed parent spotted
+Another adult clearly trying too hard at the event.
+	8.	Kid side‑eye moment
+A child judging adult behavior.
+	9.	First real kiss once alone
+The first uninterrupted kiss after leaving the public space.
+
+Bet Description:
+Winner chooses how the night ends (movie, couch, bedroom, pace).
+
+⸻
+
+🎢 FRIDAY BINGO — UNIVERSAL
+
+Theme: Us vs. Them (people‑watching + flirting)
+Grid: 4×4
+
+Squares
+	1.	Sneaky butt squeeze
+Quick, discreet grab in a crowd.
+	2.	Hand on thigh full ride
+Hand stays planted for the entire ride duration.
+	3.	Whisper something dirty
+Sexual or suggestive comment kept vague and quiet.
+	4.	Kiss that lingers
+Longer than socially normal.
+	5.	Aggressive PDA spotted
+Another couple being very affectionate in public.
+	6.	Couple arguing in line
+Audible tension between strangers.
+	7.	Honeymoon vibes
+Couple clearly obsessed with each other.
+	8.	Overheard flirting
+Strangers flirting nearby.
+	9.	Choose a dark ride on purpose
+Selecting a ride specifically for privacy.
+	10.	“Behave” is said
+One partner jokingly telling the other to stop.
+	11.	Ride photo glued together
+Bodies pressed together in the photo.
+	12.	Someone stares at us
+Another guest notices your chemistry.
+	13.	See PDA → copy it
+You mirror affection you just witnessed.
+	14.	“At least we’re not them”
+Comment after seeing awkward couple behavior.
+	15.	Someone dressed wildly impractical
+Outfit clearly wrong for weather or walking.
+	16.	Jealous side‑eye moment
+One partner notices attention and reacts playfully.
+
+Bet Description:
+1 bingo = pick next ride or drink
+2 bingos = 5‑minute massage later
+3 bingos = winner controls the hotel night
+
+⸻
+
+🔥 SATURDAY BINGO — ORLANDO / HOME TURF
+
+Theme: Intimate, confident, last full night
+Grid: 3×3
+
+Squares
+	1.	Nostalgia story → kiss
+Sharing a memory leads to affection.
+	2.	Hand stays on thigh entire drive
+Sustained physical contact in the car.
+	3.	Whisper a fantasy (vague)
+Suggestive future plan without graphic detail.
+	4.	“Stop, people are watching”
+Acknowledging public boundaries.
+	5.	Claim‑your‑partner moment
+Intentional affection after someone else notices.
+	6.	Kiss that lasts too long
+Extended kissing in semi‑public space.
+	7.	“Hotel. Now.” energy
+Clear urgency to leave.
+	8.	We forget the plan
+Abandoning schedule due to chemistry.
+	9.	Teasing promise made
+Specific flirtatious promise for later.
+
+Bet Description:
+Bingo = winner decides how the night starts
+Blackout = phones away, lights optional
+Tie = shower together, no talking
+
+⸻
+
+🎨 UX / UI NOTES FOR THE AI
+	•	Mobile‑first layout
+	•	Each square toggles on tap
+	•	Checked state visually obvious
+	•	Progress persists per device (localStorage or state)
+	•	No win detection logic required
+	•	Tone should feel fun, flirty, slightly mischievous
+
+⸻
+
+🚫 HARD CONSTRAINTS
+	•	No explicit sexual acts
+	•	No references to minors in sexual context
+	•	Public‑safe actions only
+	•	No secret squares included
+
+⸻
+
+If you want, next I can:
+	•	Rewrite this as JSON
+	•	Turn it into a Supabase / Firebase schema
+	•	Or help you prompt an AI to generate animations + haptics
+
+This is a great project idea 😏
