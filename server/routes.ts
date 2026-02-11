@@ -288,35 +288,50 @@ Respond ONLY with JSON in this exact format:
 
       const themeContext = theme ? ` The game theme is "${theme}".` : "";
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5-mini",
-        messages: [
-          {
-            role: "user",
-            content: `Generate exactly ${count} fun bet ideas for a bingo game. Each bet is a short sentence about what the winner gets or the loser must do.
-
-${moodGuide[mood]} ${ratingGuide[rating]}${themeContext}
-
-Respond ONLY with JSON in this exact format:
-{"bets": ["bet idea 1", "bet idea 2", "bet idea 3"]}`,
-          },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1024,
-      });
-
-      const content = response.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
       const extractBets = (obj: any): string[] => {
         for (const val of Object.values(obj)) {
           if (Array.isArray(val)) {
-            return val.map((b: any) => typeof b === "string" ? b : b.text || b.description || b.bet || String(b));
+            return val.map((b: any) => typeof b === "string" ? b : b.text || b.description || b.bet || String(b)).filter(Boolean);
           }
         }
         return [];
       };
-      const bets = extractBets(parsed);
-      res.json({ bets: bets.slice(0, count) });
+
+      const maxAttempts = 3;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const response = await openai.chat.completions.create({
+          model: "gpt-5-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a creative bet idea generator for bingo games. You always respond with valid JSON containing an array of bet ideas.",
+            },
+            {
+              role: "user",
+              content: `Generate exactly ${count} fun bet ideas for a bingo game. Each bet should be a short, punchy sentence describing what the winner gets or the loser must do.
+
+Context: ${moodGuide[mood]}
+Tone: ${ratingGuide[rating]}${themeContext}
+
+IMPORTANT: You must respond with valid JSON in exactly this format:
+{"bets": ["Winner picks the restaurant tonight", "Loser gives a 10-minute massage", "Winner gets breakfast in bed"]}
+
+Generate ${count} bets now:`,
+            },
+          ],
+          response_format: { type: "json_object" },
+          max_completion_tokens: 1024,
+        });
+
+        const content = response.choices[0]?.message?.content || "{}";
+        const parsed = JSON.parse(content);
+        const bets = extractBets(parsed);
+        if (bets.length > 0) {
+          return res.json({ bets: bets.slice(0, count) });
+        }
+      }
+
+      res.json({ bets: [] });
     } catch (error) {
       console.error("AI bet suggestion error:", error);
       res.status(500).json({ message: "Failed to generate bet suggestions" });
