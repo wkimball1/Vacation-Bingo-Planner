@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { BingoGame } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Heart, Plus, Trophy, Copy, Trash2, Crown, Clock, CheckCircle2, Sparkles, LayoutGrid } from "lucide-react";
+import { Heart, Plus, Trophy, Copy, Trash2, Crown, Clock, CheckCircle2, Sparkles, LayoutGrid, Share2, Pencil } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -53,6 +53,21 @@ export default function GameList() {
       toast({ title: "Game deleted" });
     },
   });
+
+  const handleShareEdit = async (game: BingoGame) => {
+    const url = `${window.location.origin}/edit/${game.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Edit: ${game.title}`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Edit link copied", description: "Send it to your partner so they can add squares too" });
+      }
+    } catch {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Edit link copied" });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -123,6 +138,7 @@ export default function GameList() {
                 onEdit={() => navigate(`/edit/${game.id}`)}
                 onDuplicate={() => duplicateGame.mutate(game.id)}
                 onDelete={() => deleteGame.mutate(game.id)}
+                onShare={() => handleShareEdit(game)}
               />
             ))}
           </div>
@@ -213,12 +229,14 @@ function GameCard({
   onEdit,
   onDuplicate,
   onDelete,
+  onShare,
 }: {
   game: BingoGame;
   onPlay: () => void;
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onShare: () => void;
 }) {
   return (
     <Card
@@ -233,10 +251,15 @@ function GameCard({
         >
           <p className="text-sm font-medium text-foreground truncate">{game.title}</p>
           <p className="text-xs text-muted-foreground truncate">{game.theme}</p>
-          <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <Badge variant="secondary" className="text-xs">
               {game.gridSize}x{game.gridSize}
             </Badge>
+            {game.rating && game.rating !== "r" && (
+              <Badge variant="outline" className="text-xs">
+                {game.rating.toUpperCase()}
+              </Badge>
+            )}
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {new Date(game.createdAt).toLocaleDateString()}
@@ -248,7 +271,10 @@ function GameCard({
             <Sparkles className="w-4 h-4" />
           </Button>
           <Button size="icon" variant="ghost" onClick={onEdit} data-testid={`button-edit-${game.id}`}>
-            <LayoutGrid className="w-4 h-4" />
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button size="icon" variant="ghost" onClick={onShare} data-testid={`button-share-${game.id}`}>
+            <Share2 className="w-4 h-4" />
           </Button>
           <Button size="icon" variant="ghost" onClick={onDuplicate} data-testid={`button-dup-${game.id}`}>
             <Copy className="w-4 h-4" />

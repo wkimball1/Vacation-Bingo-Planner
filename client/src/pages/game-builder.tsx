@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { BingoGame, BingoSquare } from "@shared/schema";
 import { useLocation, useParams } from "wouter";
-import { Heart, ArrowLeft, Plus, Trash2, Sparkles, Wand2, Save, Loader2 } from "lucide-react";
+import { Heart, ArrowLeft, Plus, Trash2, Sparkles, Wand2, Save, Loader2, Share2, Copy, Check } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,8 +11,22 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+
+const RATINGS = [
+  { value: "pg", label: "PG", desc: "Sweet & wholesome" },
+  { value: "pg13", label: "PG-13", desc: "Flirty & playful" },
+  { value: "r", label: "R", desc: "Spicy but public-safe" },
+  { value: "nc17", label: "NC-17", desc: "No limits" },
+] as const;
+
+type Rating = typeof RATINGS[number]["value"];
 
 export default function GameBuilder() {
   const params = useParams<{ id: string }>();
@@ -25,6 +39,8 @@ export default function GameBuilder() {
   const [gridSize, setGridSize] = useState(3);
   const [squares, setSquares] = useState<BingoSquare[]>([]);
   const [betDescription, setBetDescription] = useState("");
+  const [rating, setRating] = useState<Rating>("r");
+  const [copied, setCopied] = useState(false);
 
   const { data: existingGame, isLoading: loadingGame } = useQuery<BingoGame>({
     queryKey: ["/api/games", params.id],
@@ -38,6 +54,7 @@ export default function GameBuilder() {
       setGridSize(existingGame.gridSize);
       setSquares(existingGame.squares);
       setBetDescription(existingGame.betDescription);
+      setRating((existingGame.rating as Rating) || "r");
     }
   }, [existingGame]);
 
@@ -45,7 +62,7 @@ export default function GameBuilder() {
 
   const saveGame = useMutation({
     mutationFn: async () => {
-      const body = { title, theme, gridSize, squares, betDescription };
+      const body = { title, theme, gridSize, squares, betDescription, rating };
       if (isEditing) {
         const res = await apiRequest("PATCH", `/api/games/${params.id}`, body);
         return res.json();
@@ -53,8 +70,11 @@ export default function GameBuilder() {
       const res = await apiRequest("POST", "/api/games", body);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/games"] });
+      if (isEditing) {
+        queryClient.invalidateQueries({ queryKey: ["/api/games", params.id] });
+      }
       toast({ title: isEditing ? "Game updated" : "Game created" });
       navigate("/");
     },
@@ -71,6 +91,7 @@ export default function GameBuilder() {
         theme: theme || "couples date night",
         count: remaining,
         existing: squares.map((s) => s.text),
+        rating,
       });
       return res.json() as Promise<{ squares: BingoSquare[] }>;
     },
@@ -98,6 +119,25 @@ export default function GameBuilder() {
     const updated = [...squares];
     updated[index] = { ...updated[index], [field]: value };
     setSquares(updated);
+  };
+
+  const handleShareEdit = async () => {
+    const url = `${window.location.origin}/edit/${params.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Edit: ${title}`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        toast({ title: "Edit link copied", description: "Send this to your partner so they can add squares too" });
+      }
+    } catch {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({ title: "Edit link copied" });
+    }
   };
 
   const canSave = title.trim() && theme.trim() && squares.length === totalNeeded && squares.every((s) => s.text.trim());
@@ -128,7 +168,19 @@ export default function GameBuilder() {
               {isEditing ? "Edit Game" : "New Game"}
             </h1>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-1">
+            {isEditing && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="icon" variant="ghost" onClick={handleShareEdit} data-testid="button-share-edit">
+                    {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Share edit link with partner</TooltipContent>
+              </Tooltip>
+            )}
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -172,6 +224,28 @@ export default function GameBuilder() {
                 >
                   {size}x{size}
                 </Button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-foreground mb-1 block">Spice Level</label>
+            <p className="text-xs text-muted-foreground mb-2">Controls how spicy AI suggestions get</p>
+            <div className="flex gap-2">
+              {RATINGS.map((r) => (
+                <Tooltip key={r.value}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      data-testid={`button-rating-${r.value}`}
+                      variant={rating === r.value ? "default" : "outline"}
+                      className={cn("flex-1", rating === r.value && "toggle-elevate toggle-elevated")}
+                      onClick={() => setRating(r.value)}
+                    >
+                      {r.label}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{r.desc}</TooltipContent>
+                </Tooltip>
               ))}
             </div>
           </div>
@@ -277,6 +351,24 @@ export default function GameBuilder() {
           )}
           {isEditing ? "Save Changes" : "Create Game"}
         </Button>
+
+        {isEditing && (
+          <Card className="p-4">
+            <div className="flex items-start gap-3">
+              <Share2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+              <div className="space-y-2 flex-1">
+                <p className="text-sm font-medium text-foreground">Build together</p>
+                <p className="text-xs text-muted-foreground">
+                  Share the edit link with your partner so they can add their own squares too. You both edit the same game — whoever saves last keeps the changes.
+                </p>
+                <Button size="sm" variant="outline" onClick={handleShareEdit} data-testid="button-share-edit-bottom">
+                  {copied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                  {copied ? "Copied" : "Copy Edit Link"}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
       </main>
     </div>
   );
