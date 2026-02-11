@@ -1,0 +1,39 @@
+# Netlify Configuration
+# 
+# This configuration is for deploying the FRONTEND ONLY to Netlify.
+# For the full application to work, you need to deploy the backend separately
+# (on Railway, Render, Heroku, etc.) and configure the frontend to point to it.
+#
+# Alternative: Use a platform that supports full-stack Node.js apps (Railway, Render)
+
+[build]
+  command = "npm run build"
+  publish = "dist/public"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Redirect all routes to index.html for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Note: API calls (/api/*) need to be proxied to your backend server
+# Configure this in your React app's API client or use environment variables
+
+# Environment variables for frontend build
+# Set these in Netlify dashboard under Site settings > Environment variables:
+#
+# If deploying backend separately:
+# - VITE_API_URL: URL of your backend API server
+#
+# If using Netlify for local development only:
+[dev]
+  command = "npm run dev"
+  port = 5000
+  targetPort = 5000
+  framework = "#custom"
+  
+# Local dev environment variables (for netlify dev command)
+# For production deployment, the backend should be hosted elsewhere

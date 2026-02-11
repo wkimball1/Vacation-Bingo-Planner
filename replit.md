@@ -10,6 +10,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+- **2026-02-11**: **BREAKING: Migrated away from Replit-specific dependencies for platform independence.** Removed Replit Vite plugins, updated authentication to generic OIDC (replitAuth → oidcAuth), changed OpenAI integration to use standard API keys instead of Replit AI Integrations. Added comprehensive deployment documentation for Railway, Render, Heroku, and other platforms. See README.md and DEPLOYMENT.md for details. Environment variables changed: Use `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, and `OPENAI_API_KEY` instead of Replit-specific variables.
 - **2026-02-11**: Removed old PIN authentication system (player_pins table, login-screen component, auth/setup/login/status/share routes). Replit Auth is now the sole authentication method.
 - **2026-02-11**: Added mood-aware spice levels (Sweet/Flirty/Steamy/After Dark for couples, Chill/Bold/Wild/No Limits for friends, etc.), bingo detection with "1 away" highlights, stamp animation on square check, progress race bar showing both players' progress side-by-side, winner celebration screen with stats.
 - **2026-02-11**: Added game modes (couples/friends-trip/party/custom), custom player labels, AI bet suggestions with cycling UI, confetti animation on winner, share-to-play button. New columns: mood, player1_label, player2_label on bingo_games. New endpoint: POST /api/ai/bet-suggestion.
@@ -55,7 +56,7 @@ Preferred communication style: Simple, everyday language.
   - `POST /api/progress` — upsert a square's checked state
   - `GET /api/secrets/:player/:nightId` — fetch secret bonus squares
   - `PATCH /api/secrets/:id` — toggle a secret square's checked state
-- **AI Integration**: Uses Replit AI Integrations (OpenAI gpt-5-nano) for generating bingo square suggestions based on themes
+- **AI Integration**: Uses OpenAI API for generating bingo square suggestions based on themes (configurable via `OPENAI_API_KEY` environment variable)
 - **Validation**: Zod schemas (generated from Drizzle schemas via `drizzle-zod`) validate all incoming request data
 - **Dev Server**: Vite dev server is integrated as middleware for HMR during development
 - **Production**: Client is built to `dist/public`, server is bundled with esbuild to `dist/index.cjs`
@@ -81,10 +82,10 @@ Preferred communication style: Simple, everyday language.
 ### Design Decisions
 - **Database-backed games**: Games stored in PostgreSQL with squares as jsonb for flexibility
 - **UUID game IDs**: Games use UUIDs; progress/secrets reference games via nightId field
-- **Authentication**: Replit Auth (OpenID Connect) for user identity
+- **Authentication**: OpenID Connect (OIDC) for user identity - works with Auth0, Okta, Keycloak, etc.
 - **Templates as games**: Templates are stored as regular games with isTemplate=true flag
 - **Winner tracking**: Winner can be "him", "her", or "tie" — marks game as completed
-- **AI suggestions**: OpenAI gpt-5-nano generates themed bingo squares based on user-provided theme
+- **AI suggestions**: OpenAI API generates themed bingo squares based on user-provided theme
 - **Upsert pattern for progress**: Progress is stored per-square so toggling is idempotent
 - **Mobile-first design**: The UI is optimized for phone screens with touch interactions (tap to toggle, long-press for details)
 - **Default query fetcher**: Joins queryKey array with "/" so parameterized queries like ["/api/games", id] work correctly
@@ -104,10 +105,10 @@ Preferred communication style: Simple, everyday language.
 - **tailwindcss** — utility-first CSS framework
 - **lucide-react** — icon library
 - **vaul** — drawer component
-- **openai** — OpenAI API client (via Replit AI Integrations)
+- **openai** — OpenAI API client
 
-### Replit-Specific
-- **Replit AI Integrations** — OpenAI integration for AI-powered bingo square suggestions (no API key required)
-- **@replit/vite-plugin-runtime-error-modal** — shows runtime errors in dev
-- **@replit/vite-plugin-cartographer** — Replit dev tooling (dev only)
-- **@replit/vite-plugin-dev-banner** — Replit dev banner (dev only)
+### Previously Replit-Specific (Removed for Platform Independence)
+- ~~**Replit AI Integrations**~~ — Now uses standard OpenAI API with `OPENAI_API_KEY`
+- ~~**@replit/vite-plugin-runtime-error-modal**~~ — Removed in favor of standard error handling
+- ~~**@replit/vite-plugin-cartographer**~~ — Removed (Replit dev tooling)
+- ~~**@replit/vite-plugin-dev-banner**~~ — Removed (Replit dev banner)
