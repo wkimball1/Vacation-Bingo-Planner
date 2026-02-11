@@ -6,6 +6,7 @@ import { z } from "zod";
 export const bingoGames = pgTable("bingo_games", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: text("user_id"),
+  partnerId: text("partner_id"),
   title: text("title").notNull(),
   theme: text("theme").notNull(),
   gridSize: integer("grid_size").notNull().default(3),
