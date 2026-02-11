@@ -9,6 +9,7 @@ export const bingoGames = pgTable("bingo_games", {
   theme: text("theme").notNull(),
   gridSize: integer("grid_size").notNull().default(3),
   squares: jsonb("squares").notNull().$type<BingoSquare[]>(),
+  rating: text("rating").notNull().default("r"),
   betDescription: text("bet_description").notNull().default(""),
   status: text("status").notNull().default("active"),
   winner: text("winner"),

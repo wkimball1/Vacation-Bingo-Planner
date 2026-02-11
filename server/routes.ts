@@ -67,6 +67,7 @@ export async function registerRoutes(
         theme: z.string().min(1),
         gridSize: z.number().int().min(3).max(5),
         squares: z.array(z.object({ text: z.string(), description: z.string() })),
+        rating: z.enum(["pg", "pg13", "r", "nc17"]).default("r"),
         betDescription: z.string().default(""),
         isTemplate: z.boolean().default(false),
       });
@@ -92,6 +93,7 @@ export async function registerRoutes(
         theme: z.string().min(1).optional(),
         gridSize: z.number().int().min(3).max(5).optional(),
         squares: z.array(z.object({ text: z.string(), description: z.string() })).optional(),
+        rating: z.enum(["pg", "pg13", "r", "nc17"]).optional(),
         betDescription: z.string().optional(),
       });
       const data = schema.parse(req.body);
@@ -124,6 +126,7 @@ export async function registerRoutes(
         theme: original.theme,
         gridSize: original.gridSize,
         squares: original.squares,
+        rating: original.rating,
         betDescription: original.betDescription,
         status: "active",
         winner: null,
@@ -156,19 +159,27 @@ export async function registerRoutes(
         theme: z.string().min(1),
         count: z.number().int().min(1).max(25).default(9),
         existing: z.array(z.string()).default([]),
+        rating: z.enum(["pg", "pg13", "r", "nc17"]).default("r"),
       });
-      const { theme, count, existing } = schema.parse(req.body);
+      const { theme, count, existing, rating } = schema.parse(req.body);
 
       const existingText = existing.length > 0
         ? `\nAlready used (do NOT repeat these): ${existing.join(", ")}`
         : "";
+
+      const ratingGuide: Record<string, string> = {
+        pg: "Keep suggestions sweet, wholesome, and family-friendly. Focus on cute romantic gestures, hand holding, compliments, and innocent fun. Nothing sexual or suggestive.",
+        pg13: "Keep suggestions flirty and playful but tasteful. Light innuendo is okay but nothing explicit. Think romantic comedy vibes — stolen glances, lingering touches, whispered compliments.",
+        r: "Be playful, flirty, and R-rated but public-safe. Suggestive humor, teasing, and spicy moments are great. Keep it fun without being graphic or explicit.",
+        nc17: "Go all out — explicit, steamy, and unapologetically sexual. No limits on suggestiveness. These are for behind closed doors. Be creative, bold, and detailed in descriptions.",
+      };
 
       const response = await openai.chat.completions.create({
         model: "gpt-5-nano",
         messages: [
           {
             role: "system",
-            content: `You generate fun, playful, flirty bingo square ideas for couples. The squares should be short (2-6 words), creative, and appropriate for the theme. Each square needs a brief description. Keep the tone playful and R-rated but public-safe. Return valid JSON only.`,
+            content: `You generate fun, creative bingo square ideas for couples. The squares should be short (2-6 words) and each needs a brief description.\n\nRating guideline: ${ratingGuide[rating]}\n\nReturn valid JSON only.`,
           },
           {
             role: "user",
