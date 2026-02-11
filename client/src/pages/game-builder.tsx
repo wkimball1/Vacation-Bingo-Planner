@@ -19,14 +19,34 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-const RATINGS = [
-  { value: "pg", label: "PG", desc: "Sweet & wholesome" },
-  { value: "pg13", label: "PG-13", desc: "Flirty & playful" },
-  { value: "r", label: "R", desc: "Spicy but public-safe" },
-  { value: "nc17", label: "NC-17", desc: "No limits" },
-] as const;
+const RATINGS_BY_MOOD: Record<string, { value: string; label: string; desc: string }[]> = {
+  couples: [
+    { value: "pg", label: "Sweet", desc: "Wholesome & romantic" },
+    { value: "pg13", label: "Flirty", desc: "Playful teasing" },
+    { value: "r", label: "Steamy", desc: "Spicy but public-safe" },
+    { value: "nc17", label: "After Dark", desc: "No limits, behind closed doors" },
+  ],
+  "friends-trip": [
+    { value: "pg", label: "Chill", desc: "Laid-back group fun" },
+    { value: "pg13", label: "Bold", desc: "Dares and surprises" },
+    { value: "r", label: "Wild", desc: "Things might get crazy" },
+    { value: "nc17", label: "No Limits", desc: "What happens on the trip..." },
+  ],
+  party: [
+    { value: "pg", label: "Tame", desc: "Family-friendly vibes" },
+    { value: "pg13", label: "Rowdy", desc: "Getting the energy up" },
+    { value: "r", label: "Chaos", desc: "Expect the unexpected" },
+    { value: "nc17", label: "Legendary", desc: "Stories for years" },
+  ],
+  custom: [
+    { value: "pg", label: "PG", desc: "Keep it clean" },
+    { value: "pg13", label: "PG-13", desc: "A little edgy" },
+    { value: "r", label: "R", desc: "Push the limits" },
+    { value: "nc17", label: "NC-17", desc: "Anything goes" },
+  ],
+};
 
-type Rating = typeof RATINGS[number]["value"];
+type Rating = "pg" | "pg13" | "r" | "nc17";
 
 const MOODS = [
   { value: "couples", label: "Couples", icon: Heart, desc: "Romantic date vibes" },
@@ -346,14 +366,14 @@ export default function GameBuilder() {
             <label className="text-sm font-medium text-foreground mb-1 block">Spice Level</label>
             <p className="text-xs text-muted-foreground mb-2">Controls how spicy AI suggestions get</p>
             <div className="flex gap-2">
-              {RATINGS.map((r) => (
+              {(RATINGS_BY_MOOD[mood] || RATINGS_BY_MOOD.custom).map((r) => (
                 <Tooltip key={r.value}>
                   <TooltipTrigger asChild>
                     <Button
                       data-testid={`button-rating-${r.value}`}
                       variant={rating === r.value ? "default" : "outline"}
-                      className={cn("flex-1", rating === r.value && "toggle-elevate toggle-elevated")}
-                      onClick={() => setRating(r.value)}
+                      className={cn("flex-1 text-xs", rating === r.value && "toggle-elevate toggle-elevated")}
+                      onClick={() => setRating(r.value as Rating)}
                     >
                       {r.label}
                     </Button>

@@ -10,6 +10,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+- **2026-02-11**: Added mood-aware spice levels (Sweet/Flirty/Steamy/After Dark for couples, Chill/Bold/Wild/No Limits for friends, etc.), bingo detection with "1 away" highlights, stamp animation on square check, progress race bar showing both players' progress side-by-side, winner celebration screen with stats.
 - **2026-02-11**: Added game modes (couples/friends-trip/party/custom), custom player labels, AI bet suggestions with cycling UI, confetti animation on winner, share-to-play button. New columns: mood, player1_label, player2_label on bingo_games. New endpoint: POST /api/ai/bet-suggestion.
 - **2026-02-11**: Added partner linking — game owner can share play link, partner signs in and clicks "Join" to link their account. Game then appears in both users' game lists, wins/losses count for both. partnerId column on bingo_games, POST /api/games/:id/join endpoint.
 - **2026-02-11**: Added user authentication via Replit Auth (OpenID Connect). Games now belong to logged-in users (userId column). Protected game list/create/delete API routes. Landing page for logged-out users. Shared edit/play links remain public.

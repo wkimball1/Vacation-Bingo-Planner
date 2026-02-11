@@ -7,7 +7,7 @@ import { BingoCard } from "@/components/bingo-card";
 import { PlayerTabs } from "@/components/player-tabs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LoginScreen } from "@/components/login-screen";
-import { Heart, LogOut, ArrowLeft, Eye, EyeOff, Lock, Trophy, Crown, UserPlus, Share2, Copy, Check } from "lucide-react";
+import { Heart, LogOut, ArrowLeft, Eye, EyeOff, Lock, Trophy, Crown, UserPlus, Share2, Copy, Check, Flame, Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -106,6 +106,8 @@ function GamePlayView({
   const otherPlayer = loggedInPlayer === "him" ? "her" : "him";
   const isViewingOwn = activePlayer === loggedInPlayer;
   const [copiedPlay, setCopiedPlay] = useState(false);
+  const [showVictory, setShowVictory] = useState(false);
+  const [victoryWinner, setVictoryWinner] = useState<string | null>(null);
 
   const fireConfetti = useCallback(() => {
     const duration = 3000;
@@ -180,6 +182,16 @@ function GamePlayView({
     enabled: isViewingOwn && !!game,
   });
 
+  const { data: p1Progress = [] } = useQuery<BingoProgress[]>({
+    queryKey: ["/api/progress", "him", gameId],
+    enabled: !!game,
+  });
+
+  const { data: p2Progress = [] } = useQuery<BingoProgress[]>({
+    queryKey: ["/api/progress", "her", gameId],
+    enabled: !!game,
+  });
+
   const toggleSquare = useMutation({
     mutationFn: async ({ squareIndex, checked }: { squareIndex: number; checked: boolean }) => {
       return apiRequest("POST", "/api/progress", {
@@ -229,8 +241,9 @@ function GamePlayView({
       queryClient.invalidateQueries({ queryKey: ["/api/games"] });
       queryClient.invalidateQueries({ queryKey: ["/api/games/stats"] });
       setShowWinnerDialog(false);
+      setVictoryWinner(winner);
+      setShowVictory(true);
       fireConfetti();
-      toast({ title: "Winner declared!" });
     },
   });
 
@@ -314,6 +327,13 @@ function GamePlayView({
   const isShared = myStatus?.shared ?? false;
   const isCompleted = game.status === "completed";
 
+  const totalSquares = game.squares.length;
+  const p1Checked = p1Progress.filter((p) => p.checked).length;
+  const p2Checked = p2Progress.filter((p) => p.checked).length;
+  const p1Pct = totalSquares > 0 ? Math.round((p1Checked / totalSquares) * 100) : 0;
+  const p2Pct = totalSquares > 0 ? Math.round((p2Checked / totalSquares) * 100) : 0;
+  const leader = p1Checked > p2Checked ? "him" : p2Checked > p1Checked ? "her" : null;
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b">
@@ -392,6 +412,45 @@ function GamePlayView({
           player1Label={p1Label}
           player2Label={p2Label}
         />
+
+        {(p1Checked > 0 || p2Checked > 0) && (
+          <Card className="p-3" data-testid="progress-race-bar">
+            <div className="flex items-center gap-2 mb-2">
+              <Zap className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-semibold text-foreground">Race</span>
+              {leader && !isCompleted && (
+                <Badge variant="secondary" className="text-[10px] ml-auto">
+                  <Flame className="w-3 h-3 mr-0.5" />
+                  {getPlayerLabel(leader)} leads
+                </Badge>
+              )}
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-foreground w-16 truncate">{p1Label}</span>
+                <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-700 ease-out"
+                    style={{ width: `${p1Pct}%` }}
+                    data-testid="progress-bar-p1"
+                  />
+                </div>
+                <span className="text-[11px] text-muted-foreground w-8 text-right">{p1Pct}%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-foreground w-16 truncate">{p2Label}</span>
+                <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary/70 rounded-full transition-all duration-700 ease-out"
+                    style={{ width: `${p2Pct}%` }}
+                    data-testid="progress-bar-p2"
+                  />
+                </div>
+                <span className="text-[11px] text-muted-foreground w-8 text-right">{p2Pct}%</span>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {!isCompleted && (
           <Card className="p-3 flex items-center justify-between gap-3">
@@ -477,6 +536,62 @@ function GamePlayView({
             </Button>
             <Button variant="outline" onClick={() => setWinner.mutate("tie")} disabled={setWinner.isPending} data-testid="button-winner-tie">
               It's a Tie
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showVictory} onOpenChange={setShowVictory}>
+        <DialogContent className="max-w-sm text-center" data-testid="victory-screen">
+          <div className="py-4 space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
+                <Crown className="w-8 h-8 text-primary" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold text-foreground" data-testid="text-victory-title">
+                {victoryWinner === "tie" ? "It's a Tie!" : `${getPlayerLabel(victoryWinner || "him")} Wins!`}
+              </h2>
+              <p className="text-sm text-muted-foreground">{game.title}</p>
+            </div>
+            <div className="flex justify-center gap-6 py-2">
+              <div className="text-center">
+                <p className="text-xl font-bold text-foreground">{p1Checked}</p>
+                <p className="text-[11px] text-muted-foreground">{p1Label}</p>
+                <div className="w-full h-1.5 bg-muted rounded-full mt-1 overflow-hidden" style={{ width: 60 }}>
+                  <div className="h-full bg-primary rounded-full" style={{ width: `${p1Pct}%` }} />
+                </div>
+              </div>
+              <div className="flex items-center text-xs text-muted-foreground">vs</div>
+              <div className="text-center">
+                <p className="text-xl font-bold text-foreground">{p2Checked}</p>
+                <p className="text-[11px] text-muted-foreground">{p2Label}</p>
+                <div className="w-full h-1.5 bg-muted rounded-full mt-1 overflow-hidden" style={{ width: 60 }}>
+                  <div className="h-full bg-primary/70 rounded-full" style={{ width: `${p2Pct}%` }} />
+                </div>
+              </div>
+            </div>
+            {game.betDescription && (
+              <Card className="p-3 text-left">
+                <div className="flex items-start gap-2">
+                  <Trophy className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-[11px] font-semibold text-foreground mb-0.5">The Bet</p>
+                    <p className="text-xs text-muted-foreground">{game.betDescription}</p>
+                  </div>
+                </div>
+              </Card>
+            )}
+            <Button
+              className="w-full"
+              onClick={() => {
+                setShowVictory(false);
+                navigate("/");
+              }}
+              data-testid="button-victory-done"
+            >
+              Back to Games
             </Button>
           </div>
         </DialogContent>

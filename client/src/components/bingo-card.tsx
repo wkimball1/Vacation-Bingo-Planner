@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { BingoSquareCell } from "./bingo-square";
 import { Card } from "@/components/ui/card";
@@ -14,6 +15,49 @@ interface BingoCardProps {
   readOnly?: boolean;
 }
 
+function getLines(gridSize: number): number[][] {
+  const lines: number[][] = [];
+  for (let r = 0; r < gridSize; r++) {
+    const row: number[] = [];
+    for (let c = 0; c < gridSize; c++) row.push(r * gridSize + c);
+    lines.push(row);
+  }
+  for (let c = 0; c < gridSize; c++) {
+    const col: number[] = [];
+    for (let r = 0; r < gridSize; r++) col.push(r * gridSize + c);
+    lines.push(col);
+  }
+  const diag1: number[] = [];
+  const diag2: number[] = [];
+  for (let i = 0; i < gridSize; i++) {
+    diag1.push(i * gridSize + i);
+    diag2.push(i * gridSize + (gridSize - 1 - i));
+  }
+  lines.push(diag1);
+  lines.push(diag2);
+  return lines;
+}
+
+type SquareHighlight = "none" | "hot" | "complete";
+
+function computeHighlights(gridSize: number, checked: boolean[]): SquareHighlight[] {
+  const lines = getLines(gridSize);
+  const total = gridSize * gridSize;
+  const highlights: SquareHighlight[] = new Array(total).fill("none");
+
+  for (const line of lines) {
+    const checkedCount = line.filter((i) => checked[i]).length;
+    if (checkedCount === line.length) {
+      for (const i of line) highlights[i] = "complete";
+    } else if (checkedCount === line.length - 1) {
+      for (const i of line) {
+        if (highlights[i] !== "complete") highlights[i] = "hot";
+      }
+    }
+  }
+  return highlights;
+}
+
 export function BingoCard({
   night,
   checkedSquares,
@@ -25,8 +69,12 @@ export function BingoCard({
   const checkedCount = checkedSquares.filter(Boolean).length;
   const totalSquares = night.squares.length;
   const progress = Math.round((checkedCount / totalSquares) * 100);
-
   const secretChecked = secretSquares.filter((s) => s.checked).length;
+
+  const highlights = useMemo(
+    () => computeHighlights(night.gridSize, checkedSquares),
+    [night.gridSize, checkedSquares],
+  );
 
   return (
     <div className="space-y-4">
@@ -61,6 +109,7 @@ export function BingoCard({
           "grid gap-2",
           night.gridSize === 3 && "grid-cols-3",
           night.gridSize === 4 && "grid-cols-4",
+          night.gridSize === 5 && "grid-cols-5",
         )}
       >
         {night.squares.map((square, index) => (
@@ -69,6 +118,7 @@ export function BingoCard({
             text={square.text}
             description={square.description}
             checked={checkedSquares[index] || false}
+            highlight={highlights[index]}
             onToggle={readOnly ? () => {} : () => onToggleSquare(index)}
             gridSize={night.gridSize}
             readOnly={readOnly}

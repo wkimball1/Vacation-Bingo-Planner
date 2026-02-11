@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Check, Lock, Eye } from "lucide-react";
 import {
@@ -15,6 +15,7 @@ interface BingoSquareProps {
   checked: boolean;
   isSecret?: boolean;
   readOnly?: boolean;
+  highlight?: "none" | "hot" | "complete";
   onToggle: () => void;
   gridSize: number;
 }
@@ -25,32 +26,41 @@ export function BingoSquareCell({
   checked,
   isSecret,
   readOnly,
+  highlight = "none",
   onToggle,
   gridSize,
 }: BingoSquareProps) {
   const [showDetail, setShowDetail] = useState(false);
-  const [justToggled, setJustToggled] = useState(false);
+  const [animState, setAnimState] = useState<"idle" | "stamp-in" | "stamp-out">("idle");
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleTap = () => {
+  const handleTap = useCallback(() => {
     if (readOnly) return;
+    const willBeChecked = !checked;
     onToggle();
-    setJustToggled(true);
-    setTimeout(() => setJustToggled(false), 400);
-  };
+    if (willBeChecked) {
+      setAnimState("stamp-in");
+      setTimeout(() => setAnimState("idle"), 400);
+    } else {
+      setAnimState("stamp-out");
+      setTimeout(() => setAnimState("idle"), 300);
+    }
+  }, [readOnly, checked, onToggle]);
 
   const handleLongPress = () => {
     setShowDetail(true);
   };
 
-  let pressTimer: ReturnType<typeof setTimeout> | null = null;
-
   const onTouchStart = () => {
-    pressTimer = setTimeout(handleLongPress, 500);
+    pressTimerRef.current = setTimeout(handleLongPress, 500);
   };
 
   const onTouchEnd = () => {
-    if (pressTimer) clearTimeout(pressTimer);
+    if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
   };
+
+  const isHot = highlight === "hot" && !checked;
+  const isComplete = highlight === "complete";
 
   return (
     <>
@@ -64,23 +74,44 @@ export function BingoSquareCell({
           setShowDetail(true);
         }}
         className={cn(
-          "relative flex flex-col items-center justify-center p-2 rounded-md border transition-all duration-300 select-none cursor-pointer",
+          "relative flex flex-col items-center justify-center p-2 rounded-md border transition-all duration-300 select-none cursor-pointer overflow-visible",
           "text-center leading-tight",
-          gridSize === 4 ? "min-h-[80px] text-xs" : "min-h-[100px] text-sm",
+          gridSize === 4 ? "min-h-[80px] text-xs" : gridSize === 5 ? "min-h-[64px] text-[11px]" : "min-h-[100px] text-sm",
           checked
             ? "bg-primary/15 border-primary/40 dark:bg-primary/20 dark:border-primary/50"
             : "bg-card border-card-border hover-elevate active-elevate-2",
           isSecret && !checked && "border-dashed border-primary/30",
-          justToggled && checked && "animate-pulse",
+          isHot && "border-amber-400/60 dark:border-amber-400/40",
+          isComplete && "border-primary/60",
         )}
       >
+        {isHot && (
+          <div className="absolute inset-0 rounded-md animate-pulse bg-amber-400/8 dark:bg-amber-400/5 pointer-events-none" />
+        )}
+
+        {isComplete && checked && (
+          <div className="absolute inset-0 rounded-md bg-primary/5 dark:bg-primary/8 pointer-events-none" />
+        )}
+
         {isSecret && (
           <Lock className="absolute top-1.5 right-1.5 w-3 h-3 text-primary/50" />
         )}
 
         {checked && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <Check className="w-10 h-10 text-primary/20" strokeWidth={3} />
+          <div
+            className={cn(
+              "absolute inset-0 flex items-center justify-center pointer-events-none",
+              animState === "stamp-in" && "bingo-stamp-in",
+              animState === "stamp-out" && "bingo-stamp-out",
+            )}
+          >
+            <Check
+              className={cn(
+                "text-primary/20",
+                gridSize <= 3 ? "w-10 h-10" : "w-8 h-8",
+              )}
+              strokeWidth={3}
+            />
           </div>
         )}
 
@@ -88,10 +119,17 @@ export function BingoSquareCell({
           className={cn(
             "relative z-10 font-medium",
             checked ? "text-primary dark:text-primary" : "text-foreground",
+            isHot && !checked && "text-amber-600 dark:text-amber-400",
           )}
         >
           {text}
         </span>
+
+        {isHot && !checked && (
+          <span className="absolute bottom-1 left-1 text-[9px] font-bold text-amber-500/70 dark:text-amber-400/60">
+            1 away
+          </span>
+        )}
 
         <div
           role="button"
