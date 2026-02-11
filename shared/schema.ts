@@ -1,7 +1,21 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, jsonb, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+export const bingoGames = pgTable("bingo_games", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  theme: text("theme").notNull(),
+  gridSize: integer("grid_size").notNull().default(3),
+  squares: jsonb("squares").notNull().$type<BingoSquare[]>(),
+  betDescription: text("bet_description").notNull().default(""),
+  status: text("status").notNull().default("active"),
+  winner: text("winner"),
+  isTemplate: boolean("is_template").notNull().default(false),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  completedAt: timestamp("completed_at"),
+});
 
 export const bingoProgress = pgTable("bingo_progress", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -27,10 +41,13 @@ export const playerPins = pgTable("player_pins", {
   shared: boolean("shared").notNull().default(false),
 });
 
+export const insertBingoGameSchema = createInsertSchema(bingoGames).omit({ id: true, createdAt: true, completedAt: true });
 export const insertBingoProgressSchema = createInsertSchema(bingoProgress).omit({ id: true });
 export const insertSecretSquareSchema = createInsertSchema(secretSquares).omit({ id: true });
 export const insertPlayerPinSchema = createInsertSchema(playerPins).omit({ id: true });
 
+export type BingoGame = typeof bingoGames.$inferSelect;
+export type InsertBingoGame = z.infer<typeof insertBingoGameSchema>;
 export type BingoProgress = typeof bingoProgress.$inferSelect;
 export type InsertBingoProgress = z.infer<typeof insertBingoProgressSchema>;
 export type SecretSquare = typeof secretSquares.$inferSelect;
@@ -115,3 +132,83 @@ export const BINGO_NIGHTS: BingoNight[] = [
     betDescription: "Bingo = winner decides how the night starts\nBlackout = phones away, lights optional\nTie = shower together, no talking",
   },
 ];
+
+export const GAME_TEMPLATES = [
+  {
+    title: "Date Night In",
+    theme: "Cozy night at home together",
+    gridSize: 3,
+    squares: [
+      { text: "Cook together", description: "Make a meal as a team" },
+      { text: "Slow dance in the kitchen", description: "No music needed" },
+      { text: "Share a dessert", description: "One spoon, two people" },
+      { text: "Tell a secret", description: "Something you've never shared" },
+      { text: "Give a massage", description: "At least 5 minutes" },
+      { text: "Watch a sunset/sunrise", description: "From the window or porch" },
+      { text: "Write a love note", description: "On paper, not a text" },
+      { text: "Play a board game", description: "Winner picks the movie" },
+      { text: "Phone-free hour", description: "Just the two of you" },
+    ],
+    betDescription: "Winner picks the movie and dessert.",
+  },
+  {
+    title: "Road Trip",
+    theme: "Adventure on the open road",
+    gridSize: 3,
+    squares: [
+      { text: "Sing a duet", description: "Both of you, full volume" },
+      { text: "Stop at a random exit", description: "Explore somewhere new" },
+      { text: "Car karaoke battle", description: "Take turns picking songs" },
+      { text: "Hand holding for 10 miles", description: "Keep count on the signs" },
+      { text: "Take a silly selfie", description: "The weirder the better" },
+      { text: "Share a childhood story", description: "One the other hasn't heard" },
+      { text: "Try local food", description: "Something you've never had" },
+      { text: "See a funny bumper sticker", description: "Read it out loud" },
+      { text: "Make a wish at a landmark", description: "Bridge, tunnel, or sign" },
+    ],
+    betDescription: "Winner picks the next gas station snack.",
+  },
+  {
+    title: "Beach Vacation",
+    theme: "Sun, sand, and romance",
+    gridSize: 4,
+    squares: [
+      { text: "Build a sandcastle", description: "Together, teamwork required" },
+      { text: "Sunscreen each other", description: "Take your time" },
+      { text: "Beach walk at sunset", description: "Hand in hand" },
+      { text: "Share a frozen drink", description: "Two straws, one cup" },
+      { text: "Spot a funny tan line", description: "On anyone at the beach" },
+      { text: "Play in the waves", description: "Get fully soaked" },
+      { text: "Find a cool shell", description: "Give it to your partner" },
+      { text: "Take a nap together", description: "Under an umbrella" },
+      { text: "Write names in the sand", description: "With a heart of course" },
+      { text: "People-watch bingo", description: "Spot the stereotypes" },
+      { text: "Ice cream date", description: "Let them taste yours" },
+      { text: "Watch the sunrise", description: "Set an alarm together" },
+      { text: "Compete at a water sport", description: "Loser buys dinner" },
+      { text: "Secret underwater kiss", description: "If you can manage it" },
+      { text: "Matching outfit moment", description: "Accidental or on purpose" },
+      { text: "Stargazing after dark", description: "Find a constellation" },
+    ],
+    betDescription: "Winner picks the restaurant tonight.",
+  },
+  {
+    title: "Stay-at-Home Weekend",
+    theme: "Making the most of staying in",
+    gridSize: 3,
+    squares: [
+      { text: "Breakfast in bed", description: "One of you makes it" },
+      { text: "Build a blanket fort", description: "Go all out" },
+      { text: "Try a new recipe", description: "Something neither has made" },
+      { text: "Dance party for two", description: "Playlist required" },
+      { text: "Deep conversation", description: "No phones, real talk" },
+      { text: "Give compliments only", description: "For one full hour" },
+      { text: "Photo shoot", description: "Take cute couple pics" },
+      { text: "Learn something new", description: "Watch a tutorial together" },
+      { text: "Candlelit anything", description: "Dinner, bath, or just vibes" },
+    ],
+    betDescription: "Winner gets to be the little spoon tonight.",
+  },
+];
+
+export * from "./models/chat";

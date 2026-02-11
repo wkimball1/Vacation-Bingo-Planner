@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { seedSecretSquares } from "./seed";
+import { seedSecretSquares, seedTemplates, seedInitialGames } from "./seed";
 
 const app = express();
 const httpServer = createServer(app);
@@ -65,6 +65,12 @@ app.use((req, res, next) => {
 
   seedSecretSquares().catch((err) => {
     console.error("Failed to seed secret squares:", err);
+  });
+  seedTemplates().catch((err) => {
+    console.error("Failed to seed templates:", err);
+  });
+  seedInitialGames().catch((err) => {
+    console.error("Failed to seed initial games:", err);
   });
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

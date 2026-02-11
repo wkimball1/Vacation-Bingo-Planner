@@ -93,16 +93,24 @@ export function BingoSquareCell({
           {text}
         </span>
 
-        <button
+        <div
+          role="button"
+          tabIndex={-1}
           data-testid={`detail-button-${text.slice(0, 10).replace(/\s/g, "-").toLowerCase()}`}
           onClick={(e) => {
             e.stopPropagation();
             setShowDetail(true);
           }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.stopPropagation();
+              setShowDetail(true);
+            }
+          }}
           className="absolute bottom-1 right-1 p-0.5 rounded-full opacity-40 hover:opacity-100 transition-opacity"
         >
           <Eye className="w-3 h-3" />
-        </button>
+        </div>
       </button>
 
       <Dialog open={showDetail} onOpenChange={setShowDetail}>

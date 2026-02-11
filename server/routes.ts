@@ -1,24 +1,204 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBingoProgressSchema } from "@shared/schema";
+import { insertBingoProgressSchema, type BingoSquare } from "@shared/schema";
 import { z } from "zod";
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
 ): Promise<Server> {
 
+  app.get("/api/games", async (req, res) => {
+    try {
+      const { status } = req.query;
+      let games;
+      if (status === "active") {
+        games = await storage.getActiveGames();
+      } else if (status === "completed") {
+        games = await storage.getCompletedGames();
+      } else {
+        games = await storage.getAllGames();
+      }
+      res.json(games);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch games" });
+    }
+  });
+
+  app.get("/api/games/templates", async (req, res) => {
+    try {
+      const templates = await storage.getTemplates();
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch templates" });
+    }
+  });
+
+  app.get("/api/games/stats", async (req, res) => {
+    try {
+      const stats = await storage.getPlayerStats();
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  app.get("/api/games/:id", async (req, res) => {
+    try {
+      const game = await storage.getGameById(req.params.id);
+      if (!game) return res.status(404).json({ message: "Game not found" });
+      res.json(game);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch game" });
+    }
+  });
+
+  app.post("/api/games", async (req, res) => {
+    try {
+      const schema = z.object({
+        title: z.string().min(1),
+        theme: z.string().min(1),
+        gridSize: z.number().int().min(3).max(5),
+        squares: z.array(z.object({ text: z.string(), description: z.string() })),
+        betDescription: z.string().default(""),
+        isTemplate: z.boolean().default(false),
+      });
+      const data = schema.parse(req.body);
+      const game = await storage.createGame({
+        ...data,
+        status: "active",
+        winner: null,
+      });
+      res.status(201).json(game);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid game data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create game" });
+    }
+  });
+
+  app.patch("/api/games/:id", async (req, res) => {
+    try {
+      const schema = z.object({
+        title: z.string().min(1).optional(),
+        theme: z.string().min(1).optional(),
+        gridSize: z.number().int().min(3).max(5).optional(),
+        squares: z.array(z.object({ text: z.string(), description: z.string() })).optional(),
+        betDescription: z.string().optional(),
+      });
+      const data = schema.parse(req.body);
+      const game = await storage.updateGame(req.params.id, data);
+      if (!game) return res.status(404).json({ message: "Game not found" });
+      res.json(game);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update game" });
+    }
+  });
+
+  app.delete("/api/games/:id", async (req, res) => {
+    try {
+      await storage.deleteGame(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete game" });
+    }
+  });
+
+  app.post("/api/games/:id/duplicate", async (req, res) => {
+    try {
+      const original = await storage.getGameById(req.params.id);
+      if (!original) return res.status(404).json({ message: "Game not found" });
+      const game = await storage.createGame({
+        title: `${original.title} (copy)`,
+        theme: original.theme,
+        gridSize: original.gridSize,
+        squares: original.squares,
+        betDescription: original.betDescription,
+        status: "active",
+        winner: null,
+        isTemplate: false,
+      });
+      res.status(201).json(game);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to duplicate game" });
+    }
+  });
+
+  app.patch("/api/games/:id/winner", async (req, res) => {
+    try {
+      const schema = z.object({ winner: z.enum(["him", "her", "tie"]) });
+      const { winner } = schema.parse(req.body);
+      const game = await storage.setGameWinner(req.params.id, winner);
+      if (!game) return res.status(404).json({ message: "Game not found" });
+      res.json(game);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data" });
+      }
+      res.status(500).json({ message: "Failed to set winner" });
+    }
+  });
+
+  app.post("/api/ai/suggestions", async (req, res) => {
+    try {
+      const schema = z.object({
+        theme: z.string().min(1),
+        count: z.number().int().min(1).max(25).default(9),
+        existing: z.array(z.string()).default([]),
+      });
+      const { theme, count, existing } = schema.parse(req.body);
+
+      const existingText = existing.length > 0
+        ? `\nAlready used (do NOT repeat these): ${existing.join(", ")}`
+        : "";
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5-nano",
+        messages: [
+          {
+            role: "system",
+            content: `You generate fun, playful, flirty bingo square ideas for couples. The squares should be short (2-6 words), creative, and appropriate for the theme. Each square needs a brief description. Keep the tone playful and R-rated but public-safe. Return valid JSON only.`,
+          },
+          {
+            role: "user",
+            content: `Generate ${count} bingo square ideas for a couples bingo card with the theme: "${theme}"${existingText}
+
+Return as JSON: { "squares": [{ "text": "short square text", "description": "brief explanation" }] }`,
+          },
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 2048,
+      });
+
+      const content = response.choices[0]?.message?.content || "{}";
+      const parsed = JSON.parse(content);
+      const squares: BingoSquare[] = (parsed.squares || []).slice(0, count);
+      res.json({ squares });
+    } catch (error) {
+      console.error("AI suggestion error:", error);
+      res.status(500).json({ message: "Failed to generate suggestions" });
+    }
+  });
+
   app.post("/api/auth/setup", async (req, res) => {
     try {
       const schema = z.object({ player: z.enum(["him", "her"]), pin: z.string().min(4).max(8) });
       const { player, pin } = schema.parse(req.body);
-
       const existing = await storage.getPlayerPin(player);
       if (existing) {
         return res.status(409).json({ message: "PIN already set for this player" });
       }
-
       const result = await storage.createPlayerPin({ player, pin, shared: false });
       res.json({ player: result.player, shared: result.shared });
     } catch (error) {
@@ -33,16 +213,13 @@ export async function registerRoutes(
     try {
       const schema = z.object({ player: z.enum(["him", "her"]), pin: z.string() });
       const { player, pin } = schema.parse(req.body);
-
       const record = await storage.getPlayerPin(player);
       if (!record) {
         return res.status(404).json({ message: "No PIN set for this player. Set one up first." });
       }
-
       if (record.pin !== pin) {
         return res.status(401).json({ message: "Wrong PIN" });
       }
-
       res.json({ player: record.player, shared: record.shared });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -67,11 +244,8 @@ export async function registerRoutes(
       const { player } = req.params;
       const schema = z.object({ shared: z.boolean() });
       const { shared } = schema.parse(req.body);
-
       const result = await storage.updatePlayerShared(player, shared);
-      if (!result) {
-        return res.status(404).json({ message: "Player not found" });
-      }
+      if (!result) return res.status(404).json({ message: "Player not found" });
       res.json({ player: result.player, shared: result.shared });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -121,9 +295,7 @@ export async function registerRoutes(
       const schema = z.object({ checked: z.boolean() });
       const { checked } = schema.parse(req.body);
       const result = await storage.updateSecretChecked(id, checked);
-      if (!result) {
-        return res.status(404).json({ message: "Secret square not found" });
-      }
+      if (!result) return res.status(404).json({ message: "Secret square not found" });
       res.json(result);
     } catch (error) {
       if (error instanceof z.ZodError) {
