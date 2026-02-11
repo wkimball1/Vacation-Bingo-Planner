@@ -13,7 +13,7 @@ import {
   playerPins,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, or, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   getAllGames(userId?: string): Promise<BingoGame[]>;
@@ -25,6 +25,7 @@ export interface IStorage {
   updateGame(id: string, data: Partial<InsertBingoGame>): Promise<BingoGame | undefined>;
   deleteGame(id: string): Promise<void>;
   setGameWinner(id: string, winner: string): Promise<BingoGame | undefined>;
+  setGamePartner(id: string, partnerId: string): Promise<BingoGame | undefined>;
   getPlayerStats(userId?: string): Promise<{ him: number; her: number }>;
 
   getProgress(player: string, nightId: string): Promise<BingoProgress[]>;
@@ -41,21 +42,27 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getAllGames(userId?: string): Promise<BingoGame[]> {
-    const conditions = [eq(bingoGames.isTemplate, false)];
-    if (userId) conditions.push(eq(bingoGames.userId, userId));
-    return db.select().from(bingoGames).where(and(...conditions)).orderBy(desc(bingoGames.createdAt));
+    const base = [eq(bingoGames.isTemplate, false)];
+    if (userId) {
+      return db.select().from(bingoGames).where(and(...base, or(eq(bingoGames.userId, userId), eq(bingoGames.partnerId, userId)))).orderBy(desc(bingoGames.createdAt));
+    }
+    return db.select().from(bingoGames).where(and(...base)).orderBy(desc(bingoGames.createdAt));
   }
 
   async getActiveGames(userId?: string): Promise<BingoGame[]> {
-    const conditions = [eq(bingoGames.status, "active"), eq(bingoGames.isTemplate, false)];
-    if (userId) conditions.push(eq(bingoGames.userId, userId));
-    return db.select().from(bingoGames).where(and(...conditions)).orderBy(desc(bingoGames.createdAt));
+    const base = [eq(bingoGames.status, "active"), eq(bingoGames.isTemplate, false)];
+    if (userId) {
+      return db.select().from(bingoGames).where(and(...base, or(eq(bingoGames.userId, userId), eq(bingoGames.partnerId, userId)))).orderBy(desc(bingoGames.createdAt));
+    }
+    return db.select().from(bingoGames).where(and(...base)).orderBy(desc(bingoGames.createdAt));
   }
 
   async getCompletedGames(userId?: string): Promise<BingoGame[]> {
-    const conditions = [eq(bingoGames.status, "completed"), eq(bingoGames.isTemplate, false)];
-    if (userId) conditions.push(eq(bingoGames.userId, userId));
-    return db.select().from(bingoGames).where(and(...conditions)).orderBy(desc(bingoGames.completedAt));
+    const base = [eq(bingoGames.status, "completed"), eq(bingoGames.isTemplate, false)];
+    if (userId) {
+      return db.select().from(bingoGames).where(and(...base, or(eq(bingoGames.userId, userId), eq(bingoGames.partnerId, userId)))).orderBy(desc(bingoGames.completedAt));
+    }
+    return db.select().from(bingoGames).where(and(...base)).orderBy(desc(bingoGames.completedAt));
   }
 
   async getTemplates(): Promise<BingoGame[]> {
@@ -92,14 +99,30 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async setGamePartner(id: string, partnerId: string): Promise<BingoGame | undefined> {
+    const [updated] = await db.update(bingoGames).set({ partnerId }).where(eq(bingoGames.id, id)).returning();
+    return updated;
+  }
+
   async getPlayerStats(userId?: string): Promise<{ him: number; her: number }> {
-    const conditions = [eq(bingoGames.status, "completed"), eq(bingoGames.isTemplate, false)];
-    if (userId) conditions.push(eq(bingoGames.userId, userId));
+    const base = [eq(bingoGames.status, "completed"), eq(bingoGames.isTemplate, false)];
+    if (userId) {
+      const results = await db.select({
+        winner: bingoGames.winner,
+        count: sql<number>`count(*)::int`,
+      }).from(bingoGames).where(and(...base, or(eq(bingoGames.userId, userId), eq(bingoGames.partnerId, userId)))).groupBy(bingoGames.winner);
+      let him = 0;
+      let her = 0;
+      for (const r of results) {
+        if (r.winner === "him") him = r.count;
+        if (r.winner === "her") her = r.count;
+      }
+      return { him, her };
+    }
     const results = await db.select({
       winner: bingoGames.winner,
       count: sql<number>`count(*)::int`,
-    }).from(bingoGames).where(and(...conditions)).groupBy(bingoGames.winner);
-
+    }).from(bingoGames).where(and(...base)).groupBy(bingoGames.winner);
     let him = 0;
     let her = 0;
     for (const r of results) {

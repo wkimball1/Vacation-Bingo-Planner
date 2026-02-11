@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { BingoGame } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Heart, Plus, Trophy, Copy, Trash2, Crown, Clock, CheckCircle2, Sparkles, LayoutGrid, Share2, Pencil, LogOut } from "lucide-react";
+import { Heart, Plus, Trophy, Copy, Trash2, Crown, Clock, CheckCircle2, Sparkles, LayoutGrid, Share2, Pencil, LogOut, UserPlus, Users } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -144,6 +144,7 @@ export default function GameList() {
               <GameCard
                 key={game.id}
                 game={game}
+                userId={user?.id}
                 onPlay={() => navigate(`/play/${game.id}`)}
                 onEdit={() => navigate(`/edit/${game.id}`)}
                 onDuplicate={() => duplicateGame.mutate(game.id)}
@@ -235,6 +236,7 @@ export default function GameList() {
 
 function GameCard({
   game,
+  userId,
   onPlay,
   onEdit,
   onDuplicate,
@@ -242,12 +244,16 @@ function GameCard({
   onShare,
 }: {
   game: BingoGame;
+  userId?: string;
   onPlay: () => void;
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onShare: () => void;
 }) {
+  const isPartner = userId && game.partnerId === userId;
+  const hasPartner = !!game.partnerId;
+
   return (
     <Card
       data-testid={`game-card-${game.id}`}
@@ -268,6 +274,18 @@ function GameCard({
             {game.rating && game.rating !== "r" && (
               <Badge variant="outline" className="text-xs">
                 {game.rating.toUpperCase()}
+              </Badge>
+            )}
+            {isPartner && (
+              <Badge variant="outline" className="text-xs">
+                <Users className="w-3 h-3 mr-1" />
+                Partner
+              </Badge>
+            )}
+            {!isPartner && hasPartner && (
+              <Badge variant="outline" className="text-xs">
+                <Users className="w-3 h-3 mr-1" />
+                Linked
               </Badge>
             )}
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">

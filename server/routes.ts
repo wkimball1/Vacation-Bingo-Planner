@@ -151,6 +151,30 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/games/:id/join", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const game = await storage.getGameById(req.params.id);
+      if (!game) return res.status(404).json({ message: "Game not found" });
+      if (game.isTemplate) {
+        return res.status(400).json({ message: "Cannot join a template" });
+      }
+      if (game.userId === userId) {
+        return res.status(400).json({ message: "You already own this game" });
+      }
+      if (game.partnerId && game.partnerId !== userId) {
+        return res.status(400).json({ message: "This game already has a partner" });
+      }
+      if (game.partnerId === userId) {
+        return res.json(game);
+      }
+      const updated = await storage.setGamePartner(req.params.id, userId);
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to join game" });
+    }
+  });
+
   app.patch("/api/games/:id/winner", async (req, res) => {
     try {
       const schema = z.object({ winner: z.enum(["him", "her", "tie"]) });

@@ -7,7 +7,7 @@ import { BingoCard } from "@/components/bingo-card";
 import { PlayerTabs } from "@/components/player-tabs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LoginScreen } from "@/components/login-screen";
-import { Heart, LogOut, ArrowLeft, Eye, EyeOff, Lock, Trophy, Crown } from "lucide-react";
+import { Heart, LogOut, ArrowLeft, Eye, EyeOff, Lock, Trophy, Crown, UserPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -21,6 +21,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function GamePlay() {
   const { id } = useParams<{ id: string }>();
@@ -95,12 +96,32 @@ function GamePlayView({
 }) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { user: authUser } = useAuth();
   const otherPlayer = loggedInPlayer === "him" ? "her" : "him";
   const isViewingOwn = activePlayer === loggedInPlayer;
 
   const { data: game, isLoading: loadingGame } = useQuery<BingoGame>({
     queryKey: ["/api/games", gameId],
   });
+
+  const joinGame = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/games/${gameId}/join`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/games", gameId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/games?status=active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/games?status=completed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/games/stats"] });
+      toast({ title: "Joined!", description: "This game now counts in your stats too" });
+    },
+    onError: () => {
+      toast({ title: "Couldn't join", description: "This game may already have a partner", variant: "destructive" });
+    },
+  });
+
+  const canJoinAsPartner = authUser && game && game.userId !== authUser.id && !game.partnerId;
 
   const { data: myStatus } = useQuery<{ hasPin: boolean; shared: boolean }>({
     queryKey: ["/api/auth/status", loggedInPlayer],
@@ -257,6 +278,35 @@ function GamePlayView({
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 space-y-4 pb-8">
+        {canJoinAsPartner && (
+          <Card className="p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <UserPlus className="w-5 h-5 text-primary flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">Join this game</p>
+                  <p className="text-xs text-muted-foreground">Wins and losses will count in your stats too</p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => joinGame.mutate()}
+                disabled={joinGame.isPending}
+                data-testid="button-join-game"
+              >
+                Join
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {game.partnerId === authUser?.id && (
+          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <UserPlus className="w-3 h-3" />
+            <span>You're linked to this game — stats count for you</span>
+          </div>
+        )}
+
         {isCompleted && game.winner && (
           <Card className="p-4 text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
