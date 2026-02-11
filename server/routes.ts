@@ -229,17 +229,18 @@ export async function registerRoutes(
       };
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5-nano",
+        model: "gpt-5-mini",
         messages: [
           {
-            role: "system",
-            content: `You generate fun, creative bingo square ideas. The squares should be short (2-6 words) and each needs a brief description.\n\nContext: ${moodGuide[mood]}\n\nRating guideline: ${ratingGuide[rating]}\n\nReturn valid JSON only.`,
-          },
-          {
             role: "user",
-            content: `Generate ${count} bingo square ideas for a bingo card with the theme: "${theme}"${existingText}
+            content: `Generate exactly ${count} fun, creative bingo square ideas for a bingo card with the theme: "${theme}". Each square should have a short title (2-6 words) and a brief description.
 
-Return as JSON: { "squares": [{ "text": "short square text", "description": "brief explanation" }] }`,
+${moodGuide[mood]}
+
+${ratingGuide[rating]}${existingText}
+
+Respond ONLY with JSON in this exact format:
+{"squares": [{"text": "short square text", "description": "brief explanation"}]}`,
           },
         ],
         response_format: { type: "json_object" },
@@ -248,7 +249,12 @@ Return as JSON: { "squares": [{ "text": "short square text", "description": "bri
 
       const content = response.choices[0]?.message?.content || "{}";
       const parsed = JSON.parse(content);
-      const squares: BingoSquare[] = (parsed.squares || []).slice(0, count);
+      let squares: BingoSquare[] = [];
+      const arr = parsed.squares || Object.values(parsed).find(Array.isArray) || [];
+      squares = (arr as any[]).map((s: any) => ({
+        text: s.text || s.title || "",
+        description: s.description || s.desc || "",
+      })).filter((s: BingoSquare) => s.text).slice(0, count);
       res.json({ squares });
     } catch (error) {
       console.error("AI suggestion error:", error);
@@ -283,17 +289,16 @@ Return as JSON: { "squares": [{ "text": "short square text", "description": "bri
       const themeContext = theme ? ` The game theme is "${theme}".` : "";
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5-nano",
+        model: "gpt-5-mini",
         messages: [
           {
-            role: "system",
-            content: `You suggest fun, creative bet ideas for a bingo game. Each bet should be a short, punchy description of what the winner gets or the loser has to do.\n\n${moodGuide[mood]}\n\n${ratingGuide[rating]}\n\nReturn valid JSON only.`,
-          },
-          {
             role: "user",
-            content: `Generate ${count} fun bet ideas for a bingo game.${themeContext}
+            content: `Generate exactly ${count} fun bet ideas for a bingo game. Each bet is a short sentence about what the winner gets or the loser must do.
 
-Return as JSON: { "bets": ["bet description 1", "bet description 2", ...] }`,
+${moodGuide[mood]} ${ratingGuide[rating]}${themeContext}
+
+Respond ONLY with JSON in this exact format:
+{"bets": ["bet idea 1", "bet idea 2", "bet idea 3"]}`,
           },
         ],
         response_format: { type: "json_object" },
@@ -302,8 +307,16 @@ Return as JSON: { "bets": ["bet description 1", "bet description 2", ...] }`,
 
       const content = response.choices[0]?.message?.content || "{}";
       const parsed = JSON.parse(content);
-      const bets: string[] = (parsed.bets || []).slice(0, count);
-      res.json({ bets });
+      const extractBets = (obj: any): string[] => {
+        for (const val of Object.values(obj)) {
+          if (Array.isArray(val)) {
+            return val.map((b: any) => typeof b === "string" ? b : b.text || b.description || b.bet || String(b));
+          }
+        }
+        return [];
+      };
+      const bets = extractBets(parsed);
+      res.json({ bets: bets.slice(0, count) });
     } catch (error) {
       console.error("AI bet suggestion error:", error);
       res.status(500).json({ message: "Failed to generate bet suggestions" });
