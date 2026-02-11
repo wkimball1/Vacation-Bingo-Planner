@@ -10,9 +10,18 @@ import { authStorage } from "./storage";
 
 const getOidcConfig = memoize(
   async () => {
+    // Support any OpenID Connect provider via environment variables
+    // For Netlify, you can use Netlify Identity or any OIDC provider like Auth0
+    const issuerUrl = process.env.OIDC_ISSUER_URL || process.env.ISSUER_URL;
+    const clientId = process.env.OIDC_CLIENT_ID || process.env.REPL_ID;
+    
+    if (!issuerUrl || !clientId) {
+      throw new Error("OIDC_ISSUER_URL and OIDC_CLIENT_ID environment variables are required");
+    }
+    
     return await client.discovery(
-      new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
-      process.env.REPL_ID!
+      new URL(issuerUrl),
+      clientId
     );
   },
   { maxAge: 3600 * 1000 }
@@ -83,7 +92,7 @@ export async function setupAuth(app: Express) {
 
   // Helper function to ensure strategy exists for a domain
   const ensureStrategy = (domain: string) => {
-    const strategyName = `replitauth:${domain}`;
+    const strategyName = `oidcauth:${domain}`;
     if (!registeredStrategies.has(strategyName)) {
       const strategy = new Strategy(
         {
@@ -104,7 +113,7 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/login", (req, res, next) => {
     ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    passport.authenticate(`oidcauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
@@ -112,17 +121,18 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/callback", (req, res, next) => {
     ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    passport.authenticate(`oidcauth:${req.hostname}`, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);
   });
 
   app.get("/api/logout", (req, res) => {
+    const clientId = process.env.OIDC_CLIENT_ID || process.env.REPL_ID;
     req.logout(() => {
       res.redirect(
         client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
+          client_id: clientId!,
           post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
         }).href
       );
