@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { BingoGame, BingoProgress, SecretSquare } from "@shared/schema";
@@ -6,11 +6,9 @@ import { useLocation, useParams } from "wouter";
 import { BingoCard } from "@/components/bingo-card";
 import { PlayerTabs } from "@/components/player-tabs";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { LoginScreen } from "@/components/login-screen";
-import { Heart, LogOut, ArrowLeft, Eye, EyeOff, Lock, Trophy, Crown, UserPlus, Share2, Copy, Check, Flame, Zap } from "lucide-react";
+import { Heart, ArrowLeft, Eye, Trophy, Crown, UserPlus, Share2, Check, Flame, Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -30,84 +28,15 @@ import { useAuth } from "@/hooks/use-auth";
 import confetti from "canvas-confetti";
 
 export default function GamePlay() {
-  const { id } = useParams<{ id: string }>();
+  const { id: gameId } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const [loggedInPlayer, setLoggedInPlayer] = useState<string | null>(null);
   const [activePlayer, setActivePlayer] = useState("him");
   const [showWinnerDialog, setShowWinnerDialog] = useState(false);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    const savedPlayer = localStorage.getItem("bingoPlayer");
-    const savedPin = savedPlayer ? localStorage.getItem(`bingoPin_${savedPlayer}`) : null;
-    if (savedPlayer && savedPin) {
-      apiRequest("POST", "/api/auth/login", { player: savedPlayer, pin: savedPin })
-        .then(() => {
-          setLoggedInPlayer(savedPlayer);
-          setActivePlayer(savedPlayer);
-        })
-        .catch(() => {
-          localStorage.removeItem("bingoPlayer");
-          localStorage.removeItem(`bingoPin_${savedPlayer}`);
-        });
-    }
-  }, []);
-
-  const handleLogin = (player: string) => {
-    setLoggedInPlayer(player);
-    setActivePlayer(player);
-  };
-
-  const handleLogout = () => {
-    if (loggedInPlayer) {
-      localStorage.removeItem("bingoPlayer");
-      localStorage.removeItem(`bingoPin_${loggedInPlayer}`);
-    }
-    setLoggedInPlayer(null);
-  };
-
-  if (!loggedInPlayer) {
-    return <LoginScreen onLogin={handleLogin} />;
-  }
-
-  return (
-    <GamePlayView
-      gameId={id!}
-      loggedInPlayer={loggedInPlayer}
-      activePlayer={activePlayer}
-      setActivePlayer={setActivePlayer}
-      onLogout={handleLogout}
-      showWinnerDialog={showWinnerDialog}
-      setShowWinnerDialog={setShowWinnerDialog}
-    />
-  );
-}
-
-function GamePlayView({
-  gameId,
-  loggedInPlayer,
-  activePlayer,
-  setActivePlayer,
-  onLogout,
-  showWinnerDialog,
-  setShowWinnerDialog,
-}: {
-  gameId: string;
-  loggedInPlayer: string;
-  activePlayer: string;
-  setActivePlayer: (p: string) => void;
-  onLogout: () => void;
-  showWinnerDialog: boolean;
-  setShowWinnerDialog: (v: boolean) => void;
-}) {
-  const [, navigate] = useLocation();
-  const { toast } = useToast();
-  const { user: authUser } = useAuth();
-  const otherPlayer = loggedInPlayer === "him" ? "her" : "him";
-  const isViewingOwn = activePlayer === loggedInPlayer;
   const [copiedPlay, setCopiedPlay] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
   const [victoryWinner, setVictoryWinner] = useState<string | null>(null);
+  const { toast } = useToast();
+  const { user: authUser } = useAuth();
 
   const fireConfetti = useCallback(() => {
     const duration = 3000;
@@ -162,24 +91,14 @@ function GamePlayView({
 
   const canJoinAsPartner = authUser && game && game.userId !== authUser.id && !game.partnerId;
 
-  const { data: myStatus } = useQuery<{ hasPin: boolean; shared: boolean }>({
-    queryKey: ["/api/auth/status", loggedInPlayer],
-  });
-
-  const { data: otherStatus } = useQuery<{ hasPin: boolean; shared: boolean }>({
-    queryKey: ["/api/auth/status", otherPlayer],
-  });
-
-  const canViewOther = otherStatus?.shared === true;
-
   const { data: progress = [], isLoading: progressLoading } = useQuery<BingoProgress[]>({
     queryKey: ["/api/progress", activePlayer, gameId],
-    enabled: (isViewingOwn || canViewOther) && !!game,
+    enabled: !!game,
   });
 
   const { data: secrets = [], isLoading: secretsLoading } = useQuery<SecretSquare[]>({
     queryKey: ["/api/secrets", activePlayer, gameId],
-    enabled: isViewingOwn && !!game,
+    enabled: !!game,
   });
 
   const { data: p1Progress = [] } = useQuery<BingoProgress[]>({
@@ -203,6 +122,8 @@ function GamePlayView({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/progress", activePlayer, gameId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress", "him", gameId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress", "her", gameId] });
     },
   });
 
@@ -212,22 +133,6 @@ function GamePlayView({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/secrets", activePlayer, gameId] });
-    },
-  });
-
-  const toggleShare = useMutation({
-    mutationFn: async (shared: boolean) => {
-      const res = await apiRequest("PATCH", `/api/auth/share/${loggedInPlayer}`, { shared });
-      return res.json() as Promise<{ shared: boolean }>;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/status", loggedInPlayer] });
-      toast({
-        title: data.shared ? "Card shared" : "Card hidden",
-        description: data.shared
-          ? `${getPlayerLabel(otherPlayer)} can now peek at your card`
-          : `${getPlayerLabel(otherPlayer)} can no longer see your card`,
-      });
     },
   });
 
@@ -307,24 +212,21 @@ function GamePlayView({
     return p ? p.checked : false;
   });
 
-  const secretSquareData = isViewingOwn
-    ? secrets.map((s) => ({ id: s.id, text: s.text, description: s.description, checked: s.checked }))
-    : [];
+  const secretSquareData = secrets.map((s) => ({ id: s.id, text: s.text, description: s.description, checked: s.checked }));
 
   const handleToggleSquare = (index: number) => {
-    if (!isViewingOwn || game.status === "completed") return;
+    if (game.status === "completed") return;
     const current = checkedSquares[index];
     toggleSquare.mutate({ squareIndex: index, checked: !current });
   };
 
   const handleToggleSecret = (id: string) => {
-    if (!isViewingOwn || game.status === "completed") return;
+    if (game.status === "completed") return;
     const sq = secrets.find((s) => s.id === id);
     if (sq) toggleSecret.mutate({ id, checked: !sq.checked });
   };
 
-  const isLoading = progressLoading || (isViewingOwn && secretsLoading);
-  const isShared = myStatus?.shared ?? false;
+  const isLoading = progressLoading || secretsLoading;
   const isCompleted = game.status === "completed";
 
   const totalSquares = game.squares.length;
@@ -355,9 +257,6 @@ function GamePlayView({
               <TooltipContent>Share play link</TooltipContent>
             </Tooltip>
             <ThemeToggle />
-            <Button size="icon" variant="ghost" onClick={onLogout} data-testid="button-logout">
-              <LogOut className="w-4 h-4" />
-            </Button>
           </div>
         </div>
       </header>
@@ -408,7 +307,6 @@ function GamePlayView({
         <PlayerTabs
           activePlayer={activePlayer}
           onSelectPlayer={setActivePlayer}
-          loggedInPlayer={loggedInPlayer}
           player1Label={p1Label}
           player2Label={p2Label}
         />
@@ -452,35 +350,7 @@ function GamePlayView({
           </Card>
         )}
 
-        {!isCompleted && (
-          <Card className="p-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              {isShared ? (
-                <Eye className="w-4 h-4 text-primary flex-shrink-0" />
-              ) : (
-                <EyeOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              )}
-              <span className="text-sm text-foreground truncate">
-                {isShared ? `Your card is visible to ${getPlayerLabel(otherPlayer)}` : "Your card is private"}
-              </span>
-            </div>
-            <Switch
-              data-testid="switch-share"
-              checked={isShared}
-              onCheckedChange={(checked) => toggleShare.mutate(checked)}
-            />
-          </Card>
-        )}
-
-        {!isViewingOwn && !canViewOther ? (
-          <Card className="p-8 text-center space-y-3">
-            <Lock className="w-10 h-10 text-muted-foreground mx-auto" />
-            <h3 className="text-lg font-semibold text-foreground">Card is Private</h3>
-            <p className="text-sm text-muted-foreground">
-              {getPlayerLabel(otherPlayer)} hasn't shared their card with you yet.
-            </p>
-          </Card>
-        ) : isLoading ? (
+        {isLoading ? (
           <div className="space-y-4">
             <Skeleton className="h-8 w-48 mx-auto" />
             <div className={`grid gap-2 ${night.gridSize === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
@@ -491,24 +361,18 @@ function GamePlayView({
           </div>
         ) : (
           <div>
-            {!isViewingOwn && (
-              <div className="mb-3 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Eye className="w-4 h-4" />
-                <span>Viewing only — this is {getPlayerLabel(activePlayer)}'s card</span>
-              </div>
-            )}
             <BingoCard
               night={night}
               checkedSquares={checkedSquares}
               secretSquares={secretSquareData}
               onToggleSquare={handleToggleSquare}
               onToggleSecret={handleToggleSecret}
-              readOnly={!isViewingOwn || isCompleted}
+              readOnly={isCompleted}
             />
           </div>
         )}
 
-        {!isCompleted && isViewingOwn && (
+        {!isCompleted && (
           <Button
             variant="outline"
             className="w-full"

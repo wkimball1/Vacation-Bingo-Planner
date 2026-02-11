@@ -10,6 +10,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+- **2026-02-11**: Removed old PIN authentication system (player_pins table, login-screen component, auth/setup/login/status/share routes). Replit Auth is now the sole authentication method.
 - **2026-02-11**: Added mood-aware spice levels (Sweet/Flirty/Steamy/After Dark for couples, Chill/Bold/Wild/No Limits for friends, etc.), bingo detection with "1 away" highlights, stamp animation on square check, progress race bar showing both players' progress side-by-side, winner celebration screen with stats.
 - **2026-02-11**: Added game modes (couples/friends-trip/party/custom), custom player labels, AI bet suggestions with cycling UI, confetti animation on winner, share-to-play button. New columns: mood, player1_label, player2_label on bingo_games. New endpoint: POST /api/ai/bet-suggestion.
 - **2026-02-11**: Added partner linking — game owner can share play link, partner signs in and clicks "Join" to link their account. Game then appears in both users' game lists, wins/losses count for both. partnerId column on bingo_games, POST /api/games/:id/join endpoint.
@@ -33,7 +34,6 @@ Preferred communication style: Simple, everyday language.
   - `BingoCard` — renders the grid of squares for a given game
   - `BingoSquareCell` — individual tappable square with tap-to-toggle and long-press-for-details
   - `PlayerTabs` — switch between "His Card" and "Her Card"
-  - `LoginScreen` — PIN authentication flow
   - `ThemeToggle` — dark/light mode toggle
 - **Path Aliases**: `@/` maps to `client/src/`, `@shared/` maps to `shared/`
 
@@ -55,10 +55,6 @@ Preferred communication style: Simple, everyday language.
   - `POST /api/progress` — upsert a square's checked state
   - `GET /api/secrets/:player/:nightId` — fetch secret bonus squares
   - `PATCH /api/secrets/:id` — toggle a secret square's checked state
-  - `POST /api/auth/setup` — set PIN for a player
-  - `POST /api/auth/login` — authenticate with PIN
-  - `GET /api/auth/status/:player` — get auth/sharing status
-  - `PATCH /api/auth/share/:player` — toggle card sharing
 - **AI Integration**: Uses Replit AI Integrations (OpenAI gpt-5-nano) for generating bingo square suggestions based on themes
 - **Validation**: Zod schemas (generated from Drizzle schemas via `drizzle-zod`) validate all incoming request data
 - **Dev Server**: Vite dev server is integrated as middleware for HMR during development
@@ -71,7 +67,6 @@ Preferred communication style: Simple, everyday language.
   - `bingo_games` — game definitions with id (UUID), title, theme, gridSize, squares (jsonb array), betDescription, status (active/completed), winner, isTemplate flag, timestamps
   - `bingo_progress` — tracks which squares each player has checked (player, nightId referencing game id, squareIndex, checked)
   - `secret_squares` — bonus secret squares per player per game (player, nightId referencing game id, text, description, checked)
-  - `player_auth` — PIN authentication and sharing settings per player
 - **Game Templates**: 4 pre-built templates (Date Night In, Road Trip, Beach Vacation, Stay-at-Home Weekend) defined in schema and seeded on startup
 - **Migrations**: Use `drizzle-kit push` (`npm run db:push`) to sync schema to database
 - **Seeding**: `server/seed.ts` seeds templates and initial games from hardcoded BINGO_NIGHTS on startup
@@ -86,8 +81,7 @@ Preferred communication style: Simple, everyday language.
 ### Design Decisions
 - **Database-backed games**: Games stored in PostgreSQL with squares as jsonb for flexibility
 - **UUID game IDs**: Games use UUIDs; progress/secrets reference games via nightId field
-- **PIN authentication**: Simple PIN-based auth stored per player, no sessions
-- **Card sharing**: Players can toggle whether their partner can view their card
+- **Authentication**: Replit Auth (OpenID Connect) for user identity
 - **Templates as games**: Templates are stored as regular games with isTemplate=true flag
 - **Winner tracking**: Winner can be "him", "her", or "tie" — marks game as completed
 - **AI suggestions**: OpenAI gpt-5-nano generates themed bingo squares based on user-provided theme
