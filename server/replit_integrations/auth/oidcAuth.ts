@@ -8,15 +8,49 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { authStorage } from "./storage";
 
+// Type definitions for OIDC user session
+interface OidcUserSession {
+  claims?: {
+    sub: string;
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+    profile_image_url?: string;
+    exp?: number;
+  };
+  access_token?: string;
+  refresh_token?: string;
+  expires_at?: number;
+}
+
+interface OidcClaims {
+  sub: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  profile_image_url?: string;
+  exp?: number;
+  [key: string]: any;
+}
+
+// Helper to get OIDC client ID from environment
+function getClientId(): string {
+  const clientId = process.env.OIDC_CLIENT_ID || process.env.REPL_ID;
+  if (!clientId) {
+    throw new Error("OIDC_CLIENT_ID environment variable is required");
+  }
+  return clientId;
+}
+
 const getOidcConfig = memoize(
   async () => {
     // Support any OpenID Connect provider via environment variables
     // For Netlify, you can use Netlify Identity or any OIDC provider like Auth0
     const issuerUrl = process.env.OIDC_ISSUER_URL || process.env.ISSUER_URL;
-    const clientId = process.env.OIDC_CLIENT_ID || process.env.REPL_ID;
+    const clientId = getClientId();
     
-    if (!issuerUrl || !clientId) {
-      throw new Error("OIDC_ISSUER_URL and OIDC_CLIENT_ID environment variables are required");
+    if (!issuerUrl) {
+      throw new Error("OIDC_ISSUER_URL environment variable is required");
     }
     
     return await client.discovery(
@@ -50,22 +84,22 @@ export function getSession() {
 }
 
 function updateUserSession(
-  user: any,
+  user: OidcUserSession,
   tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers
 ) {
-  user.claims = tokens.claims();
+  user.claims = tokens.claims() as OidcClaims;
   user.access_token = tokens.access_token;
   user.refresh_token = tokens.refresh_token;
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(claims: any) {
+async function upsertUser(claims: OidcClaims) {
   await authStorage.upsertUser({
-    id: claims["sub"],
-    email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
+    id: claims.sub,
+    email: claims.email,
+    firstName: claims.first_name,
+    lastName: claims.last_name,
+    profileImageUrl: claims.profile_image_url,
   });
 }
 
@@ -81,9 +115,9 @@ export async function setupAuth(app: Express) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
+    const user: OidcUserSession = {};
     updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
+    await upsertUser(tokens.claims() as OidcClaims);
     verified(null, user);
   };
 
@@ -128,11 +162,11 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/logout", (req, res) => {
-    const clientId = process.env.OIDC_CLIENT_ID || process.env.REPL_ID;
+    const clientId = getClientId();
     req.logout(() => {
       res.redirect(
         client.buildEndSessionUrl(config, {
-          client_id: clientId!,
+          client_id: clientId,
           post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
         }).href
       );
@@ -141,7 +175,7 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  const user = req.user as any;
+  const user = req.user as OidcUserSession;
 
   if (!req.isAuthenticated() || !user.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
