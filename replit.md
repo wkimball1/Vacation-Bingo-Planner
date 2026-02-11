@@ -10,6 +10,8 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+- **2026-02-11**: Added user authentication via Replit Auth (OpenID Connect). Games now belong to logged-in users (userId column). Protected game list/create/delete API routes. Landing page for logged-out users. Shared edit/play links remain public.
+- **2026-02-11**: Added spice level picker (PG/PG-13/R/NC-17) for AI suggestions and share-to-edit feature for collaborative game building.
 - **2026-02-11**: Major feature expansion — replaced hardcoded nights with database-backed games system. Added game CRUD, AI suggestions (OpenAI gpt-5-nano), templates, game history/winners, stats tracking.
 
 ## System Architecture

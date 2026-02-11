@@ -113,8 +113,14 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/games/:id", async (req, res) => {
+  app.delete("/api/games/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const game = await storage.getGameById(req.params.id);
+      if (!game) return res.status(404).json({ message: "Game not found" });
+      if (game.userId && game.userId !== userId) {
+        return res.status(403).json({ message: "Not your game" });
+      }
       await storage.deleteGame(req.params.id);
       res.status(204).send();
     } catch (error) {

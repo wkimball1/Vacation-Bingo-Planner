@@ -2,27 +2,26 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { BingoGame } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Heart, Plus, Trophy, Copy, Trash2, Crown, Clock, CheckCircle2, Sparkles, LayoutGrid, Share2, Pencil } from "lucide-react";
+import { Heart, Plus, Trophy, Copy, Trash2, Crown, Clock, CheckCircle2, Sparkles, LayoutGrid, Share2, Pencil, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function GameList() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { user, logout } = useAuth();
 
   const { data: activeGames = [], isLoading: loadingActive } = useQuery<BingoGame[]>({
-    queryKey: ["/api/games", "active"],
-    queryFn: () => fetch("/api/games?status=active").then((r) => r.json()),
+    queryKey: ["/api/games?status=active"],
   });
 
   const { data: completedGames = [], isLoading: loadingCompleted } = useQuery<BingoGame[]>({
-    queryKey: ["/api/games", "completed"],
-    queryFn: () => fetch("/api/games?status=completed").then((r) => r.json()),
+    queryKey: ["/api/games?status=completed"],
   });
 
   const { data: templates = [] } = useQuery<BingoGame[]>({
@@ -39,7 +38,7 @@ export default function GameList() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/games"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/games?status=active"] });
       toast({ title: "Game duplicated" });
     },
   });
@@ -49,7 +48,8 @@ export default function GameList() {
       await apiRequest("DELETE", `/api/games/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/games"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/games?status=active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/games?status=completed"] });
       toast({ title: "Game deleted" });
     },
   });
@@ -69,6 +69,10 @@ export default function GameList() {
     }
   };
 
+  const displayName = user?.firstName
+    ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ""}`
+    : user?.email || "You";
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b">
@@ -77,7 +81,13 @@ export default function GameList() {
             <Heart className="w-5 h-5 text-primary fill-primary" />
             <h1 className="text-lg font-bold text-foreground">Date Bingo</h1>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground mr-1 hidden sm:inline">{displayName}</span>
+            <ThemeToggle />
+            <Button size="icon" variant="ghost" onClick={() => logout()} data-testid="button-logout">
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </header>
 
