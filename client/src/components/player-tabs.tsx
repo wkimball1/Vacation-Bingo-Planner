@@ -6,9 +6,11 @@ interface PlayerTabsProps {
   activePlayer: string;
   onSelectPlayer: (player: string) => void;
   loggedInPlayer: string;
+  player1Label?: string;
+  player2Label?: string;
 }
 
-export function PlayerTabs({ activePlayer, onSelectPlayer, loggedInPlayer }: PlayerTabsProps) {
+export function PlayerTabs({ activePlayer, onSelectPlayer, loggedInPlayer, player1Label = "Him", player2Label = "Her" }: PlayerTabsProps) {
   return (
     <div className="flex gap-2" data-testid="player-tabs">
       <button
@@ -22,7 +24,7 @@ export function PlayerTabs({ activePlayer, onSelectPlayer, loggedInPlayer }: Pla
         )}
       >
         <User className="w-4 h-4" />
-        His Card
+        {player1Label}'s Card
         {loggedInPlayer === "him" && (
           <Badge variant="outline" className="text-[10px] ml-1">You</Badge>
         )}
@@ -38,7 +40,7 @@ export function PlayerTabs({ activePlayer, onSelectPlayer, loggedInPlayer }: Pla
         )}
       >
         <Heart className="w-4 h-4" />
-        Her Card
+        {player2Label}'s Card
         {loggedInPlayer === "her" && (
           <Badge variant="outline" className="text-[10px] ml-1">You</Badge>
         )}

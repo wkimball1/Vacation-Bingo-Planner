@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { BingoGame, BingoProgress, SecretSquare } from "@shared/schema";
@@ -7,12 +7,17 @@ import { BingoCard } from "@/components/bingo-card";
 import { PlayerTabs } from "@/components/player-tabs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LoginScreen } from "@/components/login-screen";
-import { Heart, LogOut, ArrowLeft, Eye, EyeOff, Lock, Trophy, Crown, UserPlus } from "lucide-react";
+import { Heart, LogOut, ArrowLeft, Eye, EyeOff, Lock, Trophy, Crown, UserPlus, Share2, Copy, Check } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import confetti from "canvas-confetti";
 
 export default function GamePlay() {
   const { id } = useParams<{ id: string }>();
@@ -99,10 +105,41 @@ function GamePlayView({
   const { user: authUser } = useAuth();
   const otherPlayer = loggedInPlayer === "him" ? "her" : "him";
   const isViewingOwn = activePlayer === loggedInPlayer;
+  const [copiedPlay, setCopiedPlay] = useState(false);
+
+  const fireConfetti = useCallback(() => {
+    const duration = 3000;
+    const end = Date.now() + duration;
+    const colors = ["#ff6b6b", "#ffd93d", "#6bcb77", "#4d96ff", "#ff6bff"];
+
+    (function frame() {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.7 },
+        colors,
+      });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.7 },
+        colors,
+      });
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    })();
+  }, []);
 
   const { data: game, isLoading: loadingGame } = useQuery<BingoGame>({
     queryKey: ["/api/games", gameId],
   });
+
+  const p1Label = game?.player1Label || "Him";
+  const p2Label = game?.player2Label || "Her";
+  const getPlayerLabel = (player: string) => player === "him" ? p1Label : p2Label;
 
   const joinGame = useMutation({
     mutationFn: async () => {
@@ -176,8 +213,8 @@ function GamePlayView({
       toast({
         title: data.shared ? "Card shared" : "Card hidden",
         description: data.shared
-          ? "Your partner can now peek at your card"
-          : "Your partner can no longer see your card",
+          ? `${getPlayerLabel(otherPlayer)} can now peek at your card`
+          : `${getPlayerLabel(otherPlayer)} can no longer see your card`,
       });
     },
   });
@@ -187,14 +224,34 @@ function GamePlayView({
       const res = await apiRequest("PATCH", `/api/games/${gameId}/winner`, { winner });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, winner) => {
       queryClient.invalidateQueries({ queryKey: ["/api/games", gameId] });
       queryClient.invalidateQueries({ queryKey: ["/api/games"] });
       queryClient.invalidateQueries({ queryKey: ["/api/games/stats"] });
       setShowWinnerDialog(false);
+      fireConfetti();
       toast({ title: "Winner declared!" });
     },
   });
+
+  const handleSharePlay = async () => {
+    const url = `${window.location.origin}/play/${gameId}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Play: ${game?.title || "Bingo"}`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setCopiedPlay(true);
+        setTimeout(() => setCopiedPlay(false), 2000);
+        toast({ title: "Play link copied", description: "Send it to your partner or friends" });
+      }
+    } catch {
+      await navigator.clipboard.writeText(url);
+      setCopiedPlay(true);
+      setTimeout(() => setCopiedPlay(false), 2000);
+      toast({ title: "Play link copied" });
+    }
+  };
 
   if (loadingGame) {
     return (
@@ -269,6 +326,14 @@ function GamePlayView({
             <h1 className="text-lg font-bold text-foreground truncate">{game.title}</h1>
           </div>
           <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" onClick={handleSharePlay} data-testid="button-share-play">
+                  {copiedPlay ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Share play link</TooltipContent>
+            </Tooltip>
             <ThemeToggle />
             <Button size="icon" variant="ghost" onClick={onLogout} data-testid="button-logout">
               <LogOut className="w-4 h-4" />
@@ -315,12 +380,18 @@ function GamePlayView({
             </div>
             <Badge variant="default">
               <Trophy className="w-3 h-3 mr-1" />
-              {game.winner === "tie" ? "It's a tie!" : `Winner: ${game.winner === "him" ? "Him" : "Her"}`}
+              {game.winner === "tie" ? "It's a tie!" : `Winner: ${getPlayerLabel(game.winner)}`}
             </Badge>
           </Card>
         )}
 
-        <PlayerTabs activePlayer={activePlayer} onSelectPlayer={setActivePlayer} loggedInPlayer={loggedInPlayer} />
+        <PlayerTabs
+          activePlayer={activePlayer}
+          onSelectPlayer={setActivePlayer}
+          loggedInPlayer={loggedInPlayer}
+          player1Label={p1Label}
+          player2Label={p2Label}
+        />
 
         {!isCompleted && (
           <Card className="p-3 flex items-center justify-between gap-3">
@@ -331,7 +402,7 @@ function GamePlayView({
                 <EyeOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               )}
               <span className="text-sm text-foreground truncate">
-                {isShared ? "Your card is visible to your partner" : "Your card is private"}
+                {isShared ? `Your card is visible to ${getPlayerLabel(otherPlayer)}` : "Your card is private"}
               </span>
             </div>
             <Switch
@@ -347,7 +418,7 @@ function GamePlayView({
             <Lock className="w-10 h-10 text-muted-foreground mx-auto" />
             <h3 className="text-lg font-semibold text-foreground">Card is Private</h3>
             <p className="text-sm text-muted-foreground">
-              Your partner hasn't shared their card with you yet.
+              {getPlayerLabel(otherPlayer)} hasn't shared their card with you yet.
             </p>
           </Card>
         ) : isLoading ? (
@@ -364,7 +435,7 @@ function GamePlayView({
             {!isViewingOwn && (
               <div className="mb-3 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Eye className="w-4 h-4" />
-                <span>Viewing only - this is your partner's card</span>
+                <span>Viewing only — this is {getPlayerLabel(activePlayer)}'s card</span>
               </div>
             )}
             <BingoCard
@@ -399,10 +470,10 @@ function GamePlayView({
           </DialogHeader>
           <div className="flex flex-col gap-2 pt-2">
             <Button onClick={() => setWinner.mutate("him")} disabled={setWinner.isPending} data-testid="button-winner-him">
-              Him
+              {p1Label}
             </Button>
             <Button onClick={() => setWinner.mutate("her")} disabled={setWinner.isPending} data-testid="button-winner-her">
-              Her
+              {p2Label}
             </Button>
             <Button variant="outline" onClick={() => setWinner.mutate("tie")} disabled={setWinner.isPending} data-testid="button-winner-tie">
               It's a Tie

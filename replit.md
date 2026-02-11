@@ -1,8 +1,8 @@
-# Date Bingo - Couples Edition
+# Date Bingo
 
 ## Overview
 
-A mobile-first couples bingo web app where players can create custom bingo games, get AI-powered square suggestions, track game history with winners, use pre-built templates, and manage multiple games. The app supports two players ("him" and "her"), each with their own progress tracking, PIN authentication, card sharing controls, and secret bonus squares. The tone is playful, flirty, and R-rated but public-safe. No scoring automation — it runs on the honor system.
+A mobile-first bingo web app for couples AND friend groups. Players can create custom bingo games with AI-powered square suggestions (controllable spice levels PG to NC-17), track game history with winners, use pre-built templates, and manage multiple games. Supports game modes: Couples, Friends Trip, Party, and Custom. Players have customizable labels (default "Him"/"Her" for couples, "Team A"/"Team B" for friends, etc.). Features AI-generated bet suggestions, confetti celebrations, collaborative editing, and share-to-play links. No scoring automation — it runs on the honor system.
 
 ## User Preferences
 
@@ -10,6 +10,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+- **2026-02-11**: Added game modes (couples/friends-trip/party/custom), custom player labels, AI bet suggestions with cycling UI, confetti animation on winner, share-to-play button. New columns: mood, player1_label, player2_label on bingo_games. New endpoint: POST /api/ai/bet-suggestion.
 - **2026-02-11**: Added partner linking — game owner can share play link, partner signs in and clicks "Join" to link their account. Game then appears in both users' game lists, wins/losses count for both. partnerId column on bingo_games, POST /api/games/:id/join endpoint.
 - **2026-02-11**: Added user authentication via Replit Auth (OpenID Connect). Games now belong to logged-in users (userId column). Protected game list/create/delete API routes. Landing page for logged-out users. Shared edit/play links remain public.
 - **2026-02-11**: Added spice level picker (PG/PG-13/R/NC-17) for AI suggestions and share-to-edit feature for collaborative game building.

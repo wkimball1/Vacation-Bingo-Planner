@@ -72,6 +72,9 @@ export async function registerRoutes(
         gridSize: z.number().int().min(3).max(5),
         squares: z.array(z.object({ text: z.string(), description: z.string() })),
         rating: z.enum(["pg", "pg13", "r", "nc17"]).default("r"),
+        mood: z.enum(["couples", "friends-trip", "party", "custom"]).default("couples"),
+        player1Label: z.string().min(1).max(20).default("Him"),
+        player2Label: z.string().min(1).max(20).default("Her"),
         betDescription: z.string().default(""),
         isTemplate: z.boolean().default(false),
       });
@@ -99,6 +102,9 @@ export async function registerRoutes(
         gridSize: z.number().int().min(3).max(5).optional(),
         squares: z.array(z.object({ text: z.string(), description: z.string() })).optional(),
         rating: z.enum(["pg", "pg13", "r", "nc17"]).optional(),
+        mood: z.enum(["couples", "friends-trip", "party", "custom"]).optional(),
+        player1Label: z.string().min(1).max(20).optional(),
+        player2Label: z.string().min(1).max(20).optional(),
         betDescription: z.string().optional(),
       });
       const data = schema.parse(req.body);
@@ -139,6 +145,9 @@ export async function registerRoutes(
         gridSize: original.gridSize,
         squares: original.squares,
         rating: original.rating,
+        mood: original.mood,
+        player1Label: original.player1Label,
+        player2Label: original.player2Label,
         betDescription: original.betDescription,
         userId,
         status: "active",
@@ -197,8 +206,9 @@ export async function registerRoutes(
         count: z.number().int().min(1).max(25).default(9),
         existing: z.array(z.string()).default([]),
         rating: z.enum(["pg", "pg13", "r", "nc17"]).default("r"),
+        mood: z.enum(["couples", "friends-trip", "party", "custom"]).default("couples"),
       });
-      const { theme, count, existing, rating } = schema.parse(req.body);
+      const { theme, count, existing, rating, mood } = schema.parse(req.body);
 
       const existingText = existing.length > 0
         ? `\nAlready used (do NOT repeat these): ${existing.join(", ")}`
@@ -211,16 +221,23 @@ export async function registerRoutes(
         nc17: "Go all out — explicit, steamy, and unapologetically sexual. No limits on suggestiveness. These are for behind closed doors. Be creative, bold, and detailed in descriptions.",
       };
 
+      const moodGuide: Record<string, string> = {
+        couples: "This is for a romantic couple. Focus on relationship moments, intimacy, romance, and couple activities.",
+        "friends-trip": "This is for a friend group on a trip together. Focus on group adventures, travel moments, funny friend dynamics, inside jokes, and shared experiences. NOT romantic.",
+        party: "This is for a party or social gathering. Focus on party games, social dares, group challenges, and fun party moments. Keep it social and group-oriented.",
+        custom: "This could be for any group. Focus on the theme provided and make suggestions versatile.",
+      };
+
       const response = await openai.chat.completions.create({
         model: "gpt-5-nano",
         messages: [
           {
             role: "system",
-            content: `You generate fun, creative bingo square ideas for couples. The squares should be short (2-6 words) and each needs a brief description.\n\nRating guideline: ${ratingGuide[rating]}\n\nReturn valid JSON only.`,
+            content: `You generate fun, creative bingo square ideas. The squares should be short (2-6 words) and each needs a brief description.\n\nContext: ${moodGuide[mood]}\n\nRating guideline: ${ratingGuide[rating]}\n\nReturn valid JSON only.`,
           },
           {
             role: "user",
-            content: `Generate ${count} bingo square ideas for a couples bingo card with the theme: "${theme}"${existingText}
+            content: `Generate ${count} bingo square ideas for a bingo card with the theme: "${theme}"${existingText}
 
 Return as JSON: { "squares": [{ "text": "short square text", "description": "brief explanation" }] }`,
           },
@@ -236,6 +253,60 @@ Return as JSON: { "squares": [{ "text": "short square text", "description": "bri
     } catch (error) {
       console.error("AI suggestion error:", error);
       res.status(500).json({ message: "Failed to generate suggestions" });
+    }
+  });
+
+  app.post("/api/ai/bet-suggestion", async (req, res) => {
+    try {
+      const schema = z.object({
+        theme: z.string().default(""),
+        rating: z.enum(["pg", "pg13", "r", "nc17"]).default("r"),
+        mood: z.enum(["couples", "friends-trip", "party", "custom"]).default("couples"),
+        count: z.number().int().min(1).max(10).default(5),
+      });
+      const { theme, rating, mood, count } = schema.parse(req.body);
+
+      const ratingGuide: Record<string, string> = {
+        pg: "Keep bets sweet and wholesome. Examples: winner picks the movie, loser makes dinner, winner gets breakfast in bed.",
+        pg13: "Keep bets flirty and playful. Examples: loser gives winner a massage, winner picks the next date, loser has to serenade the winner.",
+        r: "Make bets spicy and suggestive but not explicit. Teasing, playful punishments, and bold dares.",
+        nc17: "Go all out with explicit, steamy bets. No limits. Be creative and bold.",
+      };
+
+      const moodGuide: Record<string, string> = {
+        couples: "These bets are between romantic partners.",
+        "friends-trip": "These bets are between friends on a trip. Think fun group dares, buying drinks, embarrassing challenges.",
+        party: "These bets are for a party. Think social dares, group challenges, party penalties.",
+        custom: "Make bets versatile for any group.",
+      };
+
+      const themeContext = theme ? ` The game theme is "${theme}".` : "";
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5-nano",
+        messages: [
+          {
+            role: "system",
+            content: `You suggest fun, creative bet ideas for a bingo game. Each bet should be a short, punchy description of what the winner gets or the loser has to do.\n\n${moodGuide[mood]}\n\n${ratingGuide[rating]}\n\nReturn valid JSON only.`,
+          },
+          {
+            role: "user",
+            content: `Generate ${count} fun bet ideas for a bingo game.${themeContext}
+
+Return as JSON: { "bets": ["bet description 1", "bet description 2", ...] }`,
+          },
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 1024,
+      });
+
+      const content = response.choices[0]?.message?.content || "{}";
+      const parsed = JSON.parse(content);
+      const bets: string[] = (parsed.bets || []).slice(0, count);
+      res.json({ bets });
+    } catch (error) {
+      console.error("AI bet suggestion error:", error);
+      res.status(500).json({ message: "Failed to generate bet suggestions" });
     }
   });
 

@@ -206,7 +206,7 @@ export default function GameList() {
                       {game.winner && (
                         <Badge variant="default" className="text-xs">
                           <Trophy className="w-3 h-3 mr-1" />
-                          {game.winner === "tie" ? "Tie" : game.winner === "him" ? "Him" : "Her"}
+                          {game.winner === "tie" ? "Tie" : game.winner === "him" ? (game.player1Label || "Him") : (game.player2Label || "Her")}
                         </Badge>
                       )}
                       <Button
@@ -272,6 +272,11 @@ function GameCard({
             <Badge variant="secondary" className="text-xs">
               {game.gridSize}x{game.gridSize}
             </Badge>
+            {game.mood && game.mood !== "couples" && (
+              <Badge variant="outline" className="text-xs">
+                {game.mood === "friends-trip" ? "Friends" : game.mood === "party" ? "Party" : "Custom"}
+              </Badge>
+            )}
             {game.rating && game.rating !== "r" && (
               <Badge variant="outline" className="text-xs">
                 {game.rating.toUpperCase()}
