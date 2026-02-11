@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertBingoProgressSchema, type BingoSquare } from "@shared/schema";
 import { z } from "zod";
 import OpenAI from "openai";
+import { isAuthenticated } from "./replit_integrations/auth";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -15,16 +16,17 @@ export async function registerRoutes(
   app: Express,
 ): Promise<Server> {
 
-  app.get("/api/games", async (req, res) => {
+  app.get("/api/games", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const { status } = req.query;
       let games;
       if (status === "active") {
-        games = await storage.getActiveGames();
+        games = await storage.getActiveGames(userId);
       } else if (status === "completed") {
-        games = await storage.getCompletedGames();
+        games = await storage.getCompletedGames(userId);
       } else {
-        games = await storage.getAllGames();
+        games = await storage.getAllGames(userId);
       }
       res.json(games);
     } catch (error) {
@@ -41,9 +43,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/games/stats", async (req, res) => {
+  app.get("/api/games/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const stats = await storage.getPlayerStats();
+      const userId = req.user.claims.sub;
+      const stats = await storage.getPlayerStats(userId);
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch stats" });
@@ -60,8 +63,9 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/games", async (req, res) => {
+  app.post("/api/games", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const schema = z.object({
         title: z.string().min(1),
         theme: z.string().min(1),
@@ -74,6 +78,7 @@ export async function registerRoutes(
       const data = schema.parse(req.body);
       const game = await storage.createGame({
         ...data,
+        userId,
         status: "active",
         winner: null,
       });
@@ -117,8 +122,9 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/games/:id/duplicate", async (req, res) => {
+  app.post("/api/games/:id/duplicate", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const original = await storage.getGameById(req.params.id);
       if (!original) return res.status(404).json({ message: "Game not found" });
       const game = await storage.createGame({
@@ -128,6 +134,7 @@ export async function registerRoutes(
         squares: original.squares,
         rating: original.rating,
         betDescription: original.betDescription,
+        userId,
         status: "active",
         winner: null,
         isTemplate: false,
