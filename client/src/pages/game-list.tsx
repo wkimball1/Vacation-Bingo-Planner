@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function GameList() {
   const [, navigate] = useLocation();
@@ -295,21 +296,46 @@ function GameCard({
           </div>
         </div>
         <div className="flex items-center gap-0.5 flex-shrink-0">
-          <Button size="icon" variant="ghost" onClick={onPlay} data-testid={`button-play-icon-${game.id}`}>
-            <Sparkles className="w-4 h-4" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={onEdit} data-testid={`button-edit-${game.id}`}>
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={onShare} data-testid={`button-share-${game.id}`}>
-            <Share2 className="w-4 h-4" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={onDuplicate} data-testid={`button-dup-${game.id}`}>
-            <Copy className="w-4 h-4" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={onDelete} data-testid={`button-del-${game.id}`}>
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" variant="ghost" onClick={onPlay} data-testid={`button-play-icon-${game.id}`}>
+                <Sparkles className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Play</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" variant="ghost" onClick={onEdit} data-testid={`button-edit-${game.id}`}>
+                <Pencil className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Edit</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" variant="ghost" onClick={onShare} data-testid={`button-share-${game.id}`}>
+                <Share2 className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Share edit link</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" variant="ghost" onClick={onDuplicate} data-testid={`button-dup-${game.id}`}>
+                <Copy className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Duplicate</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" variant="ghost" onClick={onDelete} data-testid={`button-del-${game.id}`}>
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Delete</TooltipContent>
+          </Tooltip>
         </div>
       </div>
     </Card>
